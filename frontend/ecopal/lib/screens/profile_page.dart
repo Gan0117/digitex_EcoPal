@@ -10,6 +10,8 @@ import 'login_page.dart';
 import 'pet_selection_page.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../widgets/floating_pet.dart';
+import 'friend.dart';
+
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -411,6 +413,21 @@ class _ProfilePageState extends State<ProfilePage> {
                           ),
                         ),
                         const SizedBox(height: 32),
+
+                        Container(
+                          decoration: BoxDecoration(color: const Color(0xFFF1F3E9).withOpacity(0.95), borderRadius: BorderRadius.circular(16), border: Border.all(color: primaryColor.withOpacity(0.2))),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(16),
+                            onTap: () {
+                              Navigator.push(context, MaterialPageRoute(builder: (context) => const FriendsPage()));
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.all(20),
+                              child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Friends', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)), Icon(Icons.people, size: 18, color: Colors.grey.shade700)]),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
 
                         Container(
                           decoration: BoxDecoration(color: const Color(0xFFF1F3E9).withOpacity(0.95), borderRadius: BorderRadius.circular(16), border: Border.all(color: primaryColor.withOpacity(0.2))),

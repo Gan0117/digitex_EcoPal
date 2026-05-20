@@ -264,31 +264,6 @@ class _PetRoomPageState extends State<PetRoomPage> {
                               child: const Icon(Icons.emoji_events, color: Colors.white, size: 24),
                             ),
                           ),
-
-                          const SizedBox(height: 10),
-
-                          // 👥 Add Friend button
-                          GestureDetector(
-                            onTap: () {
-                              // TODO: navigate to add friend page
-                            },
-                            child: Container(
-                              width: 46,
-                              height: 46,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Colors.white.withOpacity(0.75),
-                                border: Border.all(color: Colors.black, width: 1.25),
-                                boxShadow: [
-                                  BoxShadow(color: Colors.black.withOpacity(0.25), blurRadius: 8, offset: const Offset(0, 3)),
-                                ],
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.all(10),
-                                child: Image.asset('widgets/add_friend.png', fit: BoxFit.contain),
-                              ),
-                            ),
-                          ),
                         ],
                       ),
                     ),
