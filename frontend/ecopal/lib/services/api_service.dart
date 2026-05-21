@@ -7,11 +7,11 @@ import 'package:dio/dio.dart';
 import 'package:http_parser/http_parser.dart';
 
 class ApiService {
-  static bool isMockData = false;
+  //static bool isMockData = false;
+static bool isMockData = true;
 
-
-  static const String baseUrl = 'https://utmhackathon-ecopal-1.onrender.com';
-   //static const String baseUrl = 'http://127.0.0.1:8000';
+  //static const String baseUrl = 'https://utmhackathon-ecopal-1.onrender.com';
+   static const String baseUrl = 'http://127.0.0.1:8000';
 
   static String? _getAuthToken() {
     final session = Supabase.instance.client.auth.currentSession;
@@ -467,90 +467,120 @@ class ApiService {
     }
   }
 
-  static Future<List<dynamic>> getFriends() async {
-  if (isMockData) {
-    final String jsonString = await rootBundle.loadString('assets/backend/data/friends.json');
-    final data = jsonDecode(jsonString);
-    return data['friends'] as List<dynamic>;
-  }
-  final token = _getAuthToken();
-  final response = await http.get(
-    Uri.parse('$baseUrl/friends'),
-    headers: {'Authorization': 'Bearer $token'},
-  );
-  if (response.statusCode != 200) throw Exception('Failed to load friends');
-  return jsonDecode(response.body) as List<dynamic>;
-}
+  static List<dynamic>? _mockFriendsCache;
+    static List<dynamic>? _mockRequestsCache;
 
-static Future<List<dynamic>> getFriendRequests() async {
-  if (isMockData) {
-    final String jsonString = await rootBundle.loadString('assets/backend/data/friends.json');
-    final data = jsonDecode(jsonString);
-    return data['requests'] as List<dynamic>;
-  }
-  final token = _getAuthToken();
-  final response = await http.get(
-    Uri.parse('$baseUrl/friends/requests'),
-    headers: {'Authorization': 'Bearer $token'},
-  );
-  if (response.statusCode != 200) throw Exception('Failed to load requests');
-  return jsonDecode(response.body) as List<dynamic>;
-}
+    static Future<void> _initMockFriendsData() async {
+      if (_mockFriendsCache == null || _mockRequestsCache == null) {
+        final String jsonString =
+            await rootBundle.loadString('assets/backend/data/friends.json');
+        final data = jsonDecode(jsonString);
+        // 从 JSON 读取后存入内存，之后的操作都在内存里改
+        _mockFriendsCache = List<dynamic>.from(data['friends']);
+        _mockRequestsCache = List<dynamic>.from(data['requests']);
+      }
+    }
 
-static Future<Map<String, dynamic>?> searchUser(String username) async {
-  if (isMockData) {
-    return null;
-  }
-  final token = _getAuthToken();
-  final uri = Uri.parse('$baseUrl/users/search')
-      .replace(queryParameters: {'username': username});
-  final response = await http.get(uri, headers: {'Authorization': 'Bearer $token'});
-  if (response.statusCode == 404) return null;
-  if (response.statusCode != 200) throw Exception('Search failed');
-  return jsonDecode(response.body) as Map<String, dynamic>;
-}
+    static Future<List<dynamic>> getFriends() async {
+      if (isMockData) {
+        await _initMockFriendsData();
+        return _mockFriendsCache!;
+      }
+      final token = _getAuthToken();
+      final response = await http.get(
+        Uri.parse('$baseUrl/friends'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (response.statusCode != 200) throw Exception('Failed to load friends');
+      return jsonDecode(response.body) as List<dynamic>;
+    }
 
-static Future<void> sendFriendRequest(String targetUid) async {
-  if (isMockData) {
-    await Future.delayed(const Duration(milliseconds: 300));
-    return;
-  }
-  final token = _getAuthToken();
-  final response = await http.post(
-    Uri.parse('$baseUrl/friends/request'),
-    headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
-    body: jsonEncode({'target_uid': targetUid}),
-  );
-  if (response.statusCode != 200 && response.statusCode != 201) {
-    throw Exception('Failed to send request');
-  }
-}
+    static Future<List<dynamic>> getFriendRequests() async {
+      if (isMockData) {
+        await _initMockFriendsData();
+        return _mockRequestsCache!;
+      }
+      final token = _getAuthToken();
+      final response = await http.get(
+        Uri.parse('$baseUrl/friends/requests'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (response.statusCode != 200) throw Exception('Failed to load requests');
+      return jsonDecode(response.body) as List<dynamic>;
+    }
 
-static Future<void> acceptFriendRequest(String senderUid) async {
-  if (isMockData) {
-    await Future.delayed(const Duration(milliseconds: 300));
-    return;
-  }
-  final token = _getAuthToken();
-  final response = await http.post(
-    Uri.parse('$baseUrl/friends/accept'),
-    headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
-    body: jsonEncode({'sender_uid': senderUid}),
-  );
-  if (response.statusCode != 200) throw Exception('Failed to accept');
-}
+    static Future<Map<String, dynamic>?> searchUser(String username) async {
+      if (isMockData) {
+        await Future.delayed(const Duration(milliseconds: 500));
+        return {
+          "uid": "u999-mock-search",
+          "username": username,
+          "pet_name": "Ghost",
+          "species": "tabby",
+          "level": 99
+        };
+      }
+      final token = _getAuthToken();
+      final uri = Uri.parse('$baseUrl/users/search')
+          .replace(queryParameters: {'username': username});
+      final response = await http.get(uri, headers: {'Authorization': 'Bearer $token'});
+      if (response.statusCode == 404) return null;
+      if (response.statusCode != 200) throw Exception('Search failed');
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
 
-static Future<void> ignoreFriendRequest(String senderUid) async {
-  if (isMockData) {
-    await Future.delayed(const Duration(milliseconds: 300));
-    return;
-  }
-  final token = _getAuthToken();
-  final response = await http.post(
-    Uri.parse('$baseUrl/friends/ignore'),
-    headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
-    body: jsonEncode({'sender_uid': senderUid}),
-  );
-  if (response.statusCode != 200) throw Exception('Failed to ignore');
-}
+    static Future<void> sendFriendRequest(String targetUid) async {
+      if (isMockData) {
+        await Future.delayed(const Duration(milliseconds: 300));
+        return;
+      }
+      final token = _getAuthToken();
+      final response = await http.post(
+        Uri.parse('$baseUrl/friends/request'),
+        headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
+        body: jsonEncode({'target_uid': targetUid}),
+      );
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        throw Exception('Failed to send request');
+      }
+    }
+
+    static Future<void> acceptFriendRequest(String senderUid) async {
+      if (isMockData) {
+        await Future.delayed(const Duration(milliseconds: 300));
+        if (_mockRequestsCache != null) {
+          final requestIndex = _mockRequestsCache!.indexWhere((r) => r['uid'] == senderUid);
+          if (requestIndex != -1) {
+            final acceptedUser = _mockRequestsCache!.removeAt(requestIndex);
+            acceptedUser['streak'] = 0; 
+            _mockFriendsCache?.add(acceptedUser);
+          }
+        }
+        return;
+      }
+      final token = _getAuthToken();
+      final response = await http.post(
+        Uri.parse('$baseUrl/friends/accept'),
+        headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
+        body: jsonEncode({'sender_uid': senderUid}),
+      );
+      if (response.statusCode != 200) throw Exception('Failed to accept');
+    }
+
+    static Future<void> ignoreFriendRequest(String senderUid) async {
+      if (isMockData) {
+        await Future.delayed(const Duration(milliseconds: 300));
+        if (_mockRequestsCache != null) {
+          _mockRequestsCache!.removeWhere((r) => r['uid'] == senderUid);
+        }
+        return;
+      }
+      final token = _getAuthToken();
+      final response = await http.post(
+        Uri.parse('$baseUrl/friends/ignore'),
+        headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
+        body: jsonEncode({'sender_uid': senderUid}),
+      );
+      if (response.statusCode != 200) throw Exception('Failed to ignore');
+    }
 }
