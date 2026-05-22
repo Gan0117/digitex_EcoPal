@@ -555,11 +555,13 @@ static bool isMockData = false;
         return;
       }
       final token = _getAuthToken();
-      final response = await http.patch( // Matches Python @app.patch
-        Uri.parse('$baseUrl/friends/update'), // Matches Python route
-        headers: {'Content-Type': 'application/json', 'AuthRorization': 'Bearer $token'},
+      
+      final response = await http.post( 
+        Uri.parse('$baseUrl/friends/accept'), 
+        headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
         body: jsonEncode({'friend_id': senderUid, 'status': 'accepted'}), 
       );
+      
       if (response.statusCode != 200) throw Exception('Failed to accept');
     }
 
@@ -574,5 +576,25 @@ static bool isMockData = false;
         headers: {'Authorization': 'Bearer $token'},
       );
       if (response.statusCode != 200) throw Exception('Failed to ignore');
+    }
+
+  // ── SEND CHAT MESSAGE ──────────────────────────────────────────────────
+    static Future<void> sendMessage(String receiverId, {String? text, String? stickerPath}) async {
+      if (isMockData) return;
+      
+      final token = _getAuthToken();
+      final response = await http.post(
+        Uri.parse('$baseUrl/messages/send'),
+        headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
+        body: jsonEncode({
+          'receiver_id': receiverId,
+          'text': text ?? "",
+          'sticker_path': stickerPath,
+        }),
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception('Failed to send message: ${response.statusCode}');
+      }
     }
 }

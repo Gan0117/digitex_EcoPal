@@ -34,7 +34,7 @@ class FriendEntry {
   });
 
   factory FriendEntry.fromJson(Map<String, dynamic> j) => FriendEntry(
-        uid: j['uid'] ?? '',
+        uid: j['user_id'] ?? j['uid'] ?? '',
         username: j['username'] ?? 'user',
         petName: j['pet_name'] ?? 'Unknown',
         species: j['species'] ?? 'tabby',
@@ -64,7 +64,7 @@ class FriendRequest {
   });
 
   factory FriendRequest.fromJson(Map<String, dynamic> j) => FriendRequest(
-        uid: j['uid'] ?? '',
+        uid: j['user_id'] ?? j['uid'] ?? '',
         username: j['username'] ?? 'user',
         petName: j['pet_name'] ?? 'Unknown',
         species: j['species'] ?? 'tabby',
@@ -1068,6 +1068,7 @@ void _showFriendProfileDialog(FriendEntry friend) {
                     context,
                     MaterialPageRoute(
                       builder: (_) => ChatPage(
+                        friendUid: friend.uid,
                         friendUsername: friend.username,
                         friendSpecies: friend.species,
                         friendLevel: friend.level,

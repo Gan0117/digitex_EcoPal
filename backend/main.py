@@ -20,6 +20,12 @@ load_dotenv()
 url = os.environ.get("SUPABASE_URL")
 key = os.environ.get("SUPABASE_API_KEY")
 
+#Tell Python to grab the new master key from your .env file
+service_key = os.environ.get("SUPABASE_SERVICE_KEY")
+
+# Create a master client that bypasses RLS (Using the variables we just defined!)
+supabase_admin: Client = create_client(url, service_key)
+
 # Create the Supabase client using the real credentials
 supabase: Client = create_client(url, key)
 
@@ -85,6 +91,11 @@ class AddFriendRequest(BaseModel):
 class UpdateFriendStatusRequest(BaseModel):
     friend_id: str          
     status: Literal["accepted", "rejected"]
+
+class SendMessageRequest(BaseModel):
+    receiver_id: str
+    text: Optional[str] = ""
+    sticker_path: Optional[str] = None
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     token = credentials.credentials
@@ -671,17 +682,20 @@ async def add_friend(req: AddFriendRequest, user=Depends(get_current_user)):
     }).execute()
     return {"message": "Friend request sent!"}
 
-@app.patch("/friends/update")
-async def update_friend_status(req: UpdateFriendStatusRequest, user=Depends(get_current_user)):
-    user_id, friend_id = user.user.id, req.friend_id
-    res = supabase.table("friendships").select("id, status") \
-        .eq("request_from_id", friend_id).eq("address_to_id", user_id).eq("status", "pending").execute()
-
-    if not res.data:
-        raise HTTPException(status_code=404, detail="No pending request found.")
-
-    supabase.table("friendships").update({"status": req.status}).eq("id", res.data[0]["id"]).execute()
-    return {"message": f"Friend request {req.status}."}
+@app.post("/friends/accept")
+async def accept_friend(req: UpdateFriendStatusRequest, user=Depends(get_current_user)):
+    try:
+        # Force the update using the master key
+        supabase_admin.table("friendships") \
+            .update({"status": req.status}) \
+            .eq("request_from_id", req.friend_id) \
+            .eq("address_to_id", user.user.id) \
+            .execute()
+            
+        return {"message": f"Friend request {req.status}!"}
+    except Exception as e:
+        print(f"🚨 ADMIN OVERRIDE FAILED: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.delete("/friends/{friend_id}")
 async def remove_friend(friend_id: str, user=Depends(get_current_user)):
@@ -715,3 +729,24 @@ async def search_user(target_uid: str, user=Depends(get_current_user)):
         "species": pet.get("species", "tabby"),
         "level": pet.get("level", 1)
     }
+
+@app.post("/messages/send")
+async def send_message(req: SendMessageRequest, user=Depends(get_current_user)):
+    user_id = user.user.id
+    
+    # Check if they are actually sending something
+    if not req.text and not req.sticker_path:
+        raise HTTPException(status_code=400, detail="Message cannot be completely empty.")
+
+    data = {
+        "sender_id": user_id,
+        "receiver_id": req.receiver_id,
+        "text": req.text,
+        "sticker_path": req.sticker_path
+    }
+
+    try:
+        supabase.table("messages").insert(data).execute()
+        return {"status": "success", "message": "Message sent!"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
