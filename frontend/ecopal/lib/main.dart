@@ -6,6 +6,7 @@ import 'screens/pet_selection_page.dart'; // 🔥 Import PetSelectionPage
 import 'services/api_service.dart';       // 🔥 Import ApiService
 import 'widgets/floating_pet.dart'; 
 
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
@@ -51,6 +52,7 @@ class MyApp extends StatelessWidget {
         );
       },
       home: const AuthGate(),
+      //home: const GardenPage(),
     );
   }
 }

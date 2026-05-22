@@ -1,0 +1,64 @@
+{
+  "friends": [
+    {
+      "uid": "u001-abc-1234-friends",
+      "username": "KaiZen_MY",
+      "pet_name": "Mochi",
+      "species": "tabby",
+      "level": 5,
+      "weather": "sunny",
+      "pockets": [
+        { "name": "Emergency Fund", "current_balance": 2000.00, "target_amount": 5000.00, "growth_stage": 2 },
+        { "name": "Graduation Trip", "current_balance": 3000.00, "target_amount": 3000.00, "growth_stage": 3 },
+        { "name": "Eat", "current_balance": 460.00, "target_amount": 500.00, "growth_stage": 3 }
+      ]
+    },
+    {
+      "uid": "u002-def-5678-friends",
+      "username": "SiewYing",
+      "pet_name": "Biscuit",
+      "species": "orange",
+      "level": 2,
+      "weather": "overcast",
+      "pockets": [
+        { "name": "Habit Tax", "current_balance": 80.00, "target_amount": 500.00, "growth_stage": 1 },
+        { "name": "Entertainment Fund", "current_balance": 400.00, "target_amount": 500.00, "growth_stage": 2 }
+      ]
+    },
+    {
+      "uid": "u003-ghi-9012-friends",
+      "username": "RafiqSaves",
+      "pet_name": "Nugget",
+      "species": "tabby",
+      "level": 8,
+      "weather": "storm",
+      "pockets": [
+        { "name": "Emergency Fund", "current_balance": 500.00, "target_amount": 5000.00, "growth_stage": 1 },
+        { "name": "Graduation Trip", "current_balance": 1200.00, "target_amount": 3000.00, "growth_stage": 2 },
+        { "name": "Eat", "current_balance": 100.00, "target_amount": 500.00, "growth_stage": 1 }
+      ]
+    },
+    {
+      "uid": "u004-jkl-3456-friends",
+      "username": "Priya_FinFit",
+      "pet_name": "Cheddar",
+      "species": "orange",
+      "level": 3,
+      "weather": "sunny",
+      "pockets": [
+        { "name": "Emergency Fund", "current_balance": 4500.00, "target_amount": 5000.00, "growth_stage": 2 },
+        { "name": "Entertainment Fund", "current_balance": 500.00, "target_amount": 500.00, "growth_stage": 3 },
+        { "name": "Eat", "current_balance": 250.00, "target_amount": 500.00, "growth_stage": 2 }
+      ]
+    }
+  ],
+  "requests": [
+    {
+      "uid": "u005-mno-7890-req",
+      "username": "Ruien",
+      "pet_name": "Dumpling",
+      "species": "tabby",
+      "level": 4
+    }
+  ]
+}

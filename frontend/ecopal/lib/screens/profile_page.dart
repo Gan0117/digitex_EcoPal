@@ -414,19 +414,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         ),
                         const SizedBox(height: 32),
 
-                        Container(
-                          decoration: BoxDecoration(color: const Color(0xFFF1F3E9).withOpacity(0.95), borderRadius: BorderRadius.circular(16), border: Border.all(color: primaryColor.withOpacity(0.2))),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(16),
-                            onTap: () {
-                              Navigator.push(context, MaterialPageRoute(builder: (context) => const FriendsPage()));
-                            },
-                            child: Padding(
-                              padding: const EdgeInsets.all(20),
-                              child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Friends', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)), Icon(Icons.people, size: 18, color: Colors.grey.shade700)]),
-                            ),
-                          ),
-                        ),
+                        FutureFriendsCard(primaryColor: primaryColor),
                         const SizedBox(height: 16),
 
                         Container(
@@ -484,6 +472,165 @@ class _ProfilePageState extends State<ProfilePage> {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(100), border: Border.all(color: color.withOpacity(0.3))),
       child: Text(text, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold)),
+    );
+  }
+}
+  class FutureFriendsCard extends StatefulWidget {
+  final Color primaryColor;
+  const FutureFriendsCard({super.key, required this.primaryColor});
+
+  @override
+  State<FutureFriendsCard> createState() => _FutureFriendsCardState();
+}
+
+class _FutureFriendsCardState extends State<FutureFriendsCard> {
+  List<dynamic> _friends = [];
+  List<dynamic> _requests = [];
+  bool _loaded = false;
+
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final friends = await ApiService.getFriends();
+      final requests = await ApiService.getFriendRequests();
+      if (mounted) {
+        setState(() {
+          _friends = friends;
+          _requests = requests;
+          _loaded = true;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loaded = true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final int palCount = _friends.length;
+    final int requestCount = _requests.length;
+
+    const List<String> defaultGifs = [
+      'widgets/orange/cat/org_happy.gif',
+      'widgets/tabby/cat/cat_happy.gif',
+      'widgets/tabby/kitten/kit_idle.gif',
+    ];
+
+    List<String> previewGifs = [];
+    for (int i = 0; i < 3; i++) {
+      if (i < _friends.length) {
+        final f = _friends[i];
+        final species = (f['species'] ?? 'tabby').toString().toLowerCase();
+        final level = f['level'] ?? 1;
+        final folder2 = level <= 3 ? 'kitten' : 'cat';
+        final prefix = species == 'tabby'
+            ? (level <= 3 ? 'kit_' : 'cat_')
+            : (level <= 3 ? 'orkt_' : 'org_');
+        previewGifs.add('widgets/$species/$folder2/${prefix}happy.gif');
+      } else {
+        previewGifs.add(defaultGifs[i]);
+      }
+    }
+
+    final String statusLabel = requestCount > 0
+        ? '$requestCount Request${requestCount > 1 ? 's' : ''}'
+        : '$palCount Pal${palCount != 1 ? 's' : ''}';
+
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F3E9).withOpacity(0.95),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: widget.primaryColor.withOpacity(0.2)),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const FriendsPage()),
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: Row(
+            children: [
+              // 3 GIF avatars overlapping
+              SizedBox(
+                width: 104,
+                height: 52,
+                child: Stack(
+                  children: List.generate(
+                    previewGifs.length,
+                    (i) => Positioned(
+                      left: i * 32.0,
+                      child: Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: const Color(0xFFECEEEA),
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
+                        child: ClipOval(
+                          child: Image.asset(
+                            previewGifs[i],
+                            fit: BoxFit.contain,
+                            filterQuality: FilterQuality.none,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(width: 12),
+
+              // Text
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Friends',
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: requestCount > 0
+                            ? const Color(0xFFFFDAD6)
+                            : const Color(0xFFB1F0CE),
+                        borderRadius: BorderRadius.circular(100),
+                      ),
+                      child: Text(
+                        _loaded ? statusLabel : '...',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: requestCount > 0
+                              ? const Color(0xFFBA1A1A)
+                              : widget.primaryColor,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              Icon(Icons.chevron_right,
+                  size: 20, color: Colors.grey.shade600),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

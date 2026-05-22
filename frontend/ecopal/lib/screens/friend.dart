@@ -6,7 +6,9 @@ import '../services/api_service.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../widgets/floating_pet.dart';
 import 'profile_page.dart';
-
+import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import 'chat_page.dart';
 
 // ---------------------------------------------------------------------------
 // Data models
@@ -18,7 +20,8 @@ class FriendEntry {
   final String petName;
   final String species;
   final int level;
-  final int streak;
+  final String weather;
+  final List<FriendPocket> pockets;
 
   const FriendEntry({
     required this.uid,
@@ -26,7 +29,8 @@ class FriendEntry {
     required this.petName,
     required this.species,
     required this.level,
-    required this.streak,
+    required this.weather,
+    this.pockets = const [],  
   });
 
   factory FriendEntry.fromJson(Map<String, dynamic> j) => FriendEntry(
@@ -35,7 +39,12 @@ class FriendEntry {
         petName: j['pet_name'] ?? 'Unknown',
         species: j['species'] ?? 'tabby',
         level: j['level'] ?? 1,
-        streak: j['streak'] ?? 0,
+        weather: j['weather'] ?? 'sunny',
+        pockets: j['pockets'] != null
+            ? (j['pockets'] as List)
+                .map((e) => FriendPocket.fromJson(e))
+                .toList()
+            : [],
       );
 }
 
@@ -63,6 +72,32 @@ class FriendRequest {
       );
 }
 
+
+class FriendPocket {
+  final String name;
+  final double currentBalance;
+  final double targetAmount;
+  final int growthStage;
+
+  const FriendPocket({
+    required this.name,
+    required this.currentBalance,
+    required this.targetAmount,
+    required this.growthStage,
+  });
+
+  double get progress =>
+      targetAmount > 0 ? (currentBalance / targetAmount).clamp(0.0, 1.0) : 0.0;
+
+  factory FriendPocket.fromJson(Map<String, dynamic> j) => FriendPocket(
+        name: j['name'] ?? '',
+        currentBalance: (j['current_balance'] ?? 0).toDouble(),
+        targetAmount: (j['target_amount'] ?? 1).toDouble(),
+        growthStage: j['growth_stage'] ?? 1,
+      );
+}
+
+
 // ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
@@ -77,7 +112,7 @@ class FriendsPage extends StatefulWidget {
 class _FriendsPageState extends State<FriendsPage>
     with SingleTickerProviderStateMixin {
   // ── tab state ──────────────────────────────────────────────────────────────
-  int _tab = 0; // 0 = Friends, 1 = Add, 2 = QR
+  int _tab = 0; // 0 = Friends List, 1 = Add New Friend
 
   // ── current user ──────────────────────────────────────────────────────────
   bool _isLoading = true;
@@ -98,18 +133,24 @@ class _FriendsPageState extends State<FriendsPage>
   Map<String, dynamic>? _searchResult;
   String? _searchError;
 
+  String _filterStatus = 'all';
+  String _filterTime = 'newest';
+  String _filterLevel = 'none';
+  final TextEditingController _listSearchCtrl = TextEditingController();
+
   // ── animation ─────────────────────────────────────────────────────────────
   late AnimationController _stagger;
 
-  // ── colors (matches leaderboard palette) ──────────────────────────────────
+  // ── Colors from HTML Tailwind Config ──────────────────────────────────────
   static const Color _primary = Color(0xFF0F5238);
-  static const Color _secondary = Color(0xFF006C48);
-  static const Color _accent = Color(0xFF92F7C3);
-  static const Color _gold = Color(0xFFFFD700);
-  static const Color _silver = Color(0xFFC0C0C0);
-  static const Color _bronze = Color(0xFFCD7F32);
+  static const Color _surface = Color(0xFFF8FAF6);
+  static const Color _onSurface = Color(0xFF191C1A);
+  static const Color _onSurfaceVariant = Color(0xFF404943);
+  static const Color _outlineVariant = Color(0xFFBFC9C1);
+  static const Color _error = Color(0xFFBA1A1A);
+  static const Color _gold = Color(0xFFD4AF37);
+  static const Color _secondaryContainer = Color(0xFF92F7C3);
 
-  // ── lifecycle ──────────────────────────────────────────────────────────────
   @override
   void initState() {
     super.initState();
@@ -133,12 +174,13 @@ class _FriendsPageState extends State<FriendsPage>
     try {
       final profile = await ApiService.getProfile();
       final pet = await ApiService.getPetStatus();
-      final friendsRaw = await ApiService.getFriends();        // returns List
-      final requestsRaw = await ApiService.getFriendRequests(); // returns List
+      final friendsRaw = await ApiService.getFriends();
+      final requestsRaw = await ApiService.getFriendRequests();
 
       if (!mounted) return;
+
       setState(() {
-        _uid = profile['uid'] ?? Supabase.instance.client.auth.currentUser?.id ?? '';
+        _uid = profile['id'] ?? profile['uid'] ?? 'u000-default';
         _username = profile['username'] ?? 'user';
         _species = (pet['species'] ?? 'tabby').toString().toLowerCase();
         _petLevel = pet['level'] ?? 1;
@@ -154,29 +196,32 @@ class _FriendsPageState extends State<FriendsPage>
 
         _isLoading = false;
       });
+
       _stagger.forward(from: 0);
-    } catch (_) {
-      if (mounted) setState(() => _isLoading = false);
+    } catch (e) {
+      debugPrint('API Error: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _petGifPath = _buildGif('tabby', 1); 
+        });
+      }
     }
   }
 
-  // ── helpers ───────────────────────────────────────────────────────────────
   String _buildGif(String species, int level) {
-    final s = species.toLowerCase();
+    final safeSpecies = species.toLowerCase();
+    final folder1 = safeSpecies; 
     final folder2 = level <= 3 ? 'kitten' : 'cat';
-    final prefix =
-        s == 'tabby' ? (level <= 3 ? 'kit_' : 'cat_') : (level <= 3 ? 'orkt_' : 'org_');
-    return 'widgets/$s/$folder2/${prefix}idle.gif';
+    
+    final prefix = safeSpecies == 'tabby' 
+        ? (level <= 3 ? 'kit_' : 'cat_') 
+        : (level <= 3 ? 'orkt_' : 'org_');
+        
+    return 'widgets/$folder1/$folder2/${prefix}idle.gif';
   }
 
-  Color _medalColor(int rank) {
-    if (rank == 1) return _gold;
-    if (rank == 2) return _silver;
-    if (rank == 3) return _bronze;
-    return Colors.white.withOpacity(0.55);
-  }
-
-  // ── search ────────────────────────────────────────────────────────────────
+  // ── API Actions ───────────────────────────────────────────────────────────
   Future<void> _doSearch() async {
     final q = _searchCtrl.text.trim();
     if (q.isEmpty) return;
@@ -186,7 +231,7 @@ class _FriendsPageState extends State<FriendsPage>
       _searchError = null;
     });
     try {
-      final result = await ApiService.searchUser(q); // returns Map or null
+      final result = await ApiService.searchUser(q);
       setState(() {
         _searchResult = result;
         _searchError = result == null ? 'No user found.' : null;
@@ -220,7 +265,6 @@ class _FriendsPageState extends State<FriendsPage>
   Future<void> _acceptRequest(String senderUid) async {
     try {
       await ApiService.acceptFriendRequest(senderUid);
-      setState(() => _requests.removeWhere((r) => r.uid == senderUid));
       await _loadAll();
     } catch (_) {}
   }
@@ -228,37 +272,32 @@ class _FriendsPageState extends State<FriendsPage>
   Future<void> _ignoreRequest(String senderUid) async {
     try {
       await ApiService.ignoreFriendRequest(senderUid);
-      setState(() => _requests.removeWhere((r) => r.uid == senderUid));
+      await _loadAll();
     } catch (_) {}
   }
 
-  // ── glass card (same as leaderboard) ──────────────────────────────────────
-  Widget _glass({
+  // ── HTML Style Glass Panel ────────────────────────────────────────────────
+  Widget _glassPanel({
     required Widget child,
-    Color? borderColor,
-    EdgeInsetsGeometry padding =
-        const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-    double borderWidth = 1.5,
-    double radius = 20,
+    EdgeInsetsGeometry padding = const EdgeInsets.all(16),
+    double borderRadius = 24,
   }) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(radius),
+      borderRadius: BorderRadius.circular(borderRadius),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
         child: Container(
           padding: padding,
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.13),
-            borderRadius: BorderRadius.circular(radius),
-            border: Border.all(
-              color: borderColor ?? Colors.white.withOpacity(0.30),
-              width: borderWidth,
-            ),
+            color: Colors.white.withOpacity(0.7), // Lighter glass to match HTML
+            borderRadius: BorderRadius.circular(borderRadius),
+            border: Border.all(color: Colors.white.withOpacity(0.5)),
             boxShadow: [
               BoxShadow(
-                  color: Colors.black.withOpacity(0.18),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4)),
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
             ],
           ),
           child: child,
@@ -283,535 +322,1056 @@ class _FriendsPageState extends State<FriendsPage>
     );
   }
 
-  // ── pet avatar at top (tappable → ProfilePage) ────────────────────────────
-  Widget _buildTopBar() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      child: _glass(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
+  // ── UI Components ─────────────────────────────────────────────────────────
+
+ Widget _buildTopAppBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      decoration: BoxDecoration(
+        color: _surface.withOpacity(0.6),
+        border: Border(
+            bottom: BorderSide(color: _outlineVariant.withOpacity(0.3))),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back, color: _onSurfaceVariant),
+                onPressed: () => Navigator.pop(context),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(), 
+              ),
+              const SizedBox(width: 16),
+              const Text(
+                'Friends',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                  color: _primary,
+                  fontFamily: 'Plus Jakarta Sans',
+                ),
+              ),
+            ],
+          ),
+          IconButton(
+            icon: const Icon(Icons.notifications_none_rounded, color: _primary),
+            onPressed: () {},
+          ),
+        ],
+      ),
+    );
+  }
+
+  
+Widget _buildHeaderCard() {
+  return Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    child: SizedBox(
+      width: double.infinity,
+      child: _glassPanel(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        child: Column(
           children: [
-            // UID display
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            Container(
+              width: 90,
+              height: 90,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Color(0xFFB1F0CE),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: _petGifPath.isEmpty
+                    ? const SizedBox()
+                    : Image.asset(_petGifPath,
+                        fit: BoxFit.contain,
+                        filterQuality: FilterQuality.none),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              _username.isEmpty ? 'Loading...' : _username,
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: _onSurface,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              _uid.length > 4
+                  ? '#ECO-${_uid.substring(0, 4).toUpperCase()}'
+                  : '#ECO-0000',
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 1.0,
+                color: Color(0xFF707973),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+  Widget _buildSegmentedNav() {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(
+            bottom: BorderSide(color: _outlineVariant.withOpacity(0.5))),
+      ),
+      child: Row(
+        children: [
+          _buildTabButton(0, 'Friend List'),
+          _buildTabButton(1, 'Add New Friend'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabButton(int index, String title) {
+    final isActive = _tab == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _tab = index),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          color: Colors.transparent,
+          child: Column(
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                  color: isActive ? _primary : _onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                height: 4,
+                width: 24,
+                decoration: BoxDecoration(
+                  color: isActive ? _primary : Colors.transparent,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+    Widget _buildFriendsListTab() {
+      if (_friends.isEmpty && _requests.isEmpty) {
+        return const Center(
+            child: Text('No friends yet. Add some!',
+                style: TextStyle(color: _onSurfaceVariant, fontSize: 16)));
+      }
+
+      // 过滤 + 排序
+      List<FriendEntry> filteredFriends = _friends.where((f) {
+        if (_filterStatus != 'all' && f.weather != _filterStatus) return false;
+        final q = _listSearchCtrl.text.trim().toLowerCase();
+        if (q.isNotEmpty &&
+            !f.username.toLowerCase().contains(q) &&
+            !f.petName.toLowerCase().contains(q)) return false;
+        return true;
+      }).toList();
+
+      if (_filterTime == 'oldest') {
+        filteredFriends = filteredFriends.reversed.toList();
+      }
+      if (_filterLevel == 'high_low') {
+        filteredFriends.sort((a, b) => b.level.compareTo(a.level));
+      } else if (_filterLevel == 'low_high') {
+        filteredFriends.sort((a, b) => a.level.compareTo(b.level));
+      }
+
+      List<Widget> items = [];
+
+      // --- Friend Requests Section ---
+      if (_requests.isNotEmpty) {
+        items.add(
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 16),
+            child: Row(
+              children: [
+                const Text('Friend Requests',
+                    style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: _onSurface)),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                      color: _error, borderRadius: BorderRadius.circular(12)),
+                  child: Text('${_requests.length}',
+                      style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white)),
+                ),
+              ],
+            ),
+          ),
+        );
+
+        for (int i = 0; i < _requests.length; i++) {
+          items.add(_animated(i, _buildRequestCard(_requests[i])));
+          items.add(const SizedBox(height: 12));
+        }
+      }
+
+      // --- Filters & Search Section ---
+      items.add(
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Column(
+            children: [
+              Container(
+                height: 48,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.8),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: _outlineVariant.withOpacity(0.5)),
+                ),
+                child: TextField(
+                  controller: _listSearchCtrl,
+                  onChanged: (_) => setState(() {}),
+                  decoration: const InputDecoration(
+                    hintText: 'Search ecosystem...',
+                    hintStyle: TextStyle(fontSize: 14, color: _outlineVariant),
+                    prefixIcon: Icon(Icons.search, color: _outlineVariant),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.only(top: 12),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
                 children: [
-                  const Text('UID',
-                      style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.white60,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 1.1)),
-                  const SizedBox(height: 2),
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          _uid.isEmpty ? 'Loading...' : _uid,
-                          style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.white,
-                              fontWeight: FontWeight.w500),
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                  Expanded(
+                    child: _buildDropdown<String>(
+                      value: _filterStatus,
+                      items: const [
+                        DropdownMenuItem(value: 'all',      child: Text('Status: All')),
+                        DropdownMenuItem(value: 'sunny',    child: Text('Status: ☀️ Sunny')),
+                        DropdownMenuItem(value: 'overcast', child: Text('Status: ⛅ Overcast')),
+                        DropdownMenuItem(value: 'storm',    child: Text('Status: ⛈ Storm')),
+                      ],
+                      onChanged: (v) => setState(() => _filterStatus = v!),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _buildDropdown<String>(
+                      value: _filterTime,
+                      items: const [
+                        DropdownMenuItem(value: 'newest', child: Text('Time: Newest')),
+                        DropdownMenuItem(value: 'oldest', child: Text('Time: Oldest')),
+                      ],
+                      onChanged: (v) => setState(() => _filterTime = v!),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _buildDropdown<String>(
+                      value: _filterLevel,
+                      items: const [
+                        DropdownMenuItem(value: 'none',     child: Text('Level: None')),
+                        DropdownMenuItem(value: 'high_low', child: Text('Level: High to Low')),
+                        DropdownMenuItem(value: 'low_high', child: Text('Level: Low to High')),
+                      ],
+                      onChanged: (v) => setState(() => _filterLevel = v!),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+
+  // --- My Pals Section ---
+  items.add(
+    Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 16),
+      child: Row(
+        children: [
+          const Text('My Pals',
+              style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: _onSurface)),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+                color: const Color(0xFFE7E9E5),
+                borderRadius: BorderRadius.circular(8)),
+            child: Text('${filteredFriends.length}',
+                style: const TextStyle(
+                    fontSize: 12, fontWeight: FontWeight.bold, color: _primary)),
+          ),
+        ],
+      ),
+    ),
+  );
+
+  for (int i = 0; i < filteredFriends.length; i++) {
+    items.add(
+        _animated(_requests.length + i, _buildFriendCard(filteredFriends[i])));
+    items.add(const SizedBox(height: 12));
+  }
+
+  return ListView(
+    padding: const EdgeInsets.fromLTRB(24, 0, 24, 120),
+    children: items,
+  );
+}
+
+Widget _buildDropdown<T>({
+  required T value,
+  required List<DropdownMenuItem<T>> items,
+  required ValueChanged<T?> onChanged,
+}) {
+  return Container(
+    height: 40,
+    padding: const EdgeInsets.symmetric(horizontal: 10),
+    decoration: BoxDecoration(
+      color: const Color(0xFFE7E9E5),
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: const Color(0xFFBFC9C1).withOpacity(0.5)),
+    ),
+    child: DropdownButtonHideUnderline(
+      child: DropdownButton<T>(
+        value: value,
+        items: items,
+        onChanged: onChanged,
+        isDense: true,
+        icon: const Icon(Icons.expand_more, size: 14, color: Color(0xFF404943)),
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: Color(0xFF404943),
+        ),
+        dropdownColor: const Color(0xFFF8FAF6),
+        borderRadius: BorderRadius.circular(12),
+      ),
+    ),
+  );
+}
+
+  Widget _buildFilterChip(String label, bool isActive) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: isActive ? const Color(0xFFB1F0CE) : const Color(0xFFE7E9E5),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+            color: isActive
+                ? const Color(0xFF2D6A4F).withOpacity(0.2)
+                : _outlineVariant.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          Text(label,
+              style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: isActive ? FontWeight.bold : FontWeight.w600,
+                  color: isActive ? const Color(0xFF002114) : _onSurfaceVariant)),
+          const SizedBox(width: 4),
+          Icon(Icons.expand_more,
+              size: 14,
+              color: isActive ? const Color(0xFF002114) : _onSurfaceVariant),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRequestCard(FriendRequest req) {
+    return _glassPanel(
+      padding: const EdgeInsets.all(16),
+      borderRadius: 16,
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: const Color(0xFFECEEEA),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _outlineVariant.withOpacity(0.3)),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(4.0),
+              child: Image.asset(_buildGif(req.species, req.level),
+                  fit: BoxFit.contain, filterQuality: FilterQuality.none),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(req.username,
+                    style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: _onSurface)),
+                const SizedBox(height: 2),
+                Text('Lv.${req.level} • ${req.petName}',
+                    style: const TextStyle(
+                        fontSize: 12, color: _onSurfaceVariant)),
+              ],
+            ),
+          ),
+          Row(
+            children: [
+              GestureDetector(
+                onTap: () => _acceptRequest(req.uid),
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                      color: _primary, borderRadius: BorderRadius.circular(12)),
+                  child: const Icon(Icons.check, color: Colors.white, size: 20),
+                ),
+              ),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: () => _ignoreRequest(req.uid),
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                      color: const Color(0xFFBFC9C1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                          color: _outlineVariant.withOpacity(0.3))),
+                  child: const Icon(Icons.close,
+                      color: _onSurfaceVariant, size: 20),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+ Widget _weatherBadge(String weather) {
+  String emoji;
+  String label;
+  Color color;
+  Color bg;
+
+  switch (weather) {
+    case 'overcast':
+      emoji = '⛅';
+      label = 'Overcast';
+      color = const Color(0xFF7B6A00);
+      bg = const Color(0xFFFFF9C4);
+      break;
+    case 'storm':
+      emoji = '⛈️';
+      label = 'Storm';
+      color = const Color(0xFFBA1A1A);
+      bg = const Color(0xFFFFDAD6);
+      break;
+    default:
+      emoji = '☀️';
+      label = 'Sunny';
+      color = const Color(0xFF1B6E3A);
+      bg = const Color(0xFFB1F0CE);
+  }
+
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+    decoration: BoxDecoration(
+      color: bg,
+      borderRadius: BorderRadius.circular(100),
+    ),
+    child: Text(
+      '$emoji $label',
+      style: TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w700,
+        color: color,
+      ),
+    ),
+  );
+}
+
+
+String _treeImage(int index, int growthStage) {
+  const names = ['first', 'second', 'third', 'fourth', 'fifth'];
+  final name = names[index.clamp(0, 4)];
+  if (growthStage >= 3) return 'widgets/dashboard/${name}_tree_big.png';
+  if (growthStage == 2) return 'widgets/dashboard/${name}_tree_medium.png';
+  return 'widgets/dashboard/${name}_tree_small.png';
+}
+
+
+Color _progressBarColor(double progress) {
+  if (progress >= 0.9) return const Color(0xFF4CAF50); 
+  if (progress >= 0.5) return const Color(0xFFE5B94A); 
+  if (progress >= 0.2) return const Color(0xFFFF8C42); 
+  return const Color(0xFFEF4444);                       
+}
+
+void _showFriendProfileDialog(FriendEntry friend) {
+ 
+  final List<FriendPocket> displayPockets = friend.pockets.isNotEmpty
+      ? friend.pockets
+      : [
+          const FriendPocket(name: 'Emergency Fund', currentBalance: 2000, targetAmount: 5000, growthStage: 2),
+          const FriendPocket(name: 'Graduation Trip', currentBalance: 3000, targetAmount: 3000, growthStage: 3),
+          const FriendPocket(name: 'Habit Tax', currentBalance: 80, targetAmount: 500, growthStage: 1),
+          const FriendPocket(name: 'Entertainment', currentBalance: 400, targetAmount: 500, growthStage: 2),
+          const FriendPocket(name: 'Eat', currentBalance: 460, targetAmount: 500, growthStage: 3),
+        ];
+
+  showDialog(
+    context: context,
+    barrierColor: Colors.black.withOpacity(0.45),
+    builder: (ctx) => Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 32, vertical: 60),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,                          // 白色卡片
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.15),
+              blurRadius: 24,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 20, 16, 0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    friend.username,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF191C1A),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(ctx),
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFECEEEA),
+                        shape: BoxShape.circle,
                       ),
-                      const SizedBox(width: 6),
-                      GestureDetector(
-                        onTap: () {
-                          Clipboard.setData(ClipboardData(text: _uid));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('UID copied!')));
-                        },
-                        child: const Icon(Icons.copy,
-                            size: 14, color: Colors.white54),
-                      ),
-                    ],
+                      child: const Icon(Icons.close, size: 16, color: Color(0xFF404943)),
+                    ),
                   ),
                 ],
               ),
             ),
 
-            // Animated cat gif → taps to ProfilePage
-            GestureDetector(
-              onTap: () => Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const ProfilePage())),
-              child: Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                      color: _accent.withOpacity(0.7), width: 2),
-                  color: const Color(0xFF1A2A22),
-                ),
-                child: ClipOval(
-                  child: _petGifPath.isEmpty
-                      ? const SizedBox()
-                      : Image.asset(
-                          _petGifPath,
-                          fit: BoxFit.contain,
-                          filterQuality: FilterQuality.none,
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              child: Column(
+                children: [
+                  Container(
+                    width: 140,
+                    height: 120,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFECEEEA),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Image.asset(
+                        _buildGif(friend.species, friend.level),
+                        fit: BoxFit.contain,
+                        filterQuality: FilterQuality.none,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    friend.petName,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF191C1A),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  // Level badge
+                  Text(
+                    'Lv. ${friend.level}',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF404943),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            
+            Divider(color: Colors.grey.shade200, height: 1),
+
+            // ── Plant Goals 区域 ──────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  
+                  const Row(
+                    children: [
+                      Text('🌿', style: TextStyle(fontSize: 16)),
+                      SizedBox(width: 6),
+                      Text(
+                        'Plant Goals',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF191C1A),
                         ),
+                      ),
+                    ],
+                  ),
+                  
+                  _weatherBadge(friend.weather),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 220),
+              child: ListView.separated(
+                shrinkWrap: true,
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                itemCount: displayPockets.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 10),
+                itemBuilder: (_, i) {
+                  final pocket = displayPockets[i];
+                  final progress = pocket.progress;
+                  final barColor = _progressBarColor(progress);
+
+                  return Row(
+                    children: [
+                      // 树的图片
+                      SizedBox(
+                        width: 28,
+                        height: 28,
+                        child: Image.asset(
+                          _treeImage(i, pocket.growthStage),
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              pocket.name,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF191C1A),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(4),
+                              child: LinearProgressIndicator(
+                                value: progress,
+                                minHeight: 7,
+                                backgroundColor: const Color(0xFFECEEEA),
+                                valueColor: AlwaysStoppedAnimation<Color>(barColor),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      // 百分比
+                      Text(
+                        '${(progress * 100).toInt()}%',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: barColor,
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+           
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+              child: SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                  Navigator.pop(ctx); 
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ChatPage(
+                        friendUsername: friend.username,
+                        friendSpecies: friend.species,
+                        friendLevel: friend.level,
+                      ),
+                    ),
+                  );
+                },
+                  icon: const Icon(Icons.chat_bubble_outline, size: 18, color: Color(0xFF0F5238)),
+                  label: Text(
+                    'Chat with ${friend.username}',
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF0F5238),
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFB1F0CE), // 浅绿色按钮
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
                 ),
               ),
             ),
           ],
         ),
       ),
+    ),
+  );
+}
+
+  Widget _buildFriendCard(FriendEntry f) {
+    return GestureDetector(
+      onTap: () => _showFriendProfileDialog(f), 
+      child: _glassPanel(
+      padding: const EdgeInsets.all(16),
+      borderRadius: 16,
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: const Color(0xFFECEEEA),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _outlineVariant.withOpacity(0.3)),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(4.0),
+              child: Image.asset(_buildGif(f.species, f.level),
+                  fit: BoxFit.contain, filterQuality: FilterQuality.none),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(f.username,
+                    style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: _onSurface)),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    _weatherBadge(f.weather),
+                    Text(' • Lv.${f.level}',  
+                        style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: _onSurfaceVariant)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: _secondaryContainer.withOpacity(0.5),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.chevron_right,
+                color: Color(0xFF00734D), size: 20),
+          ),
+        ],
+      ),
+      ),
     );
   }
 
-  // ── tab bar ───────────────────────────────────────────────────────────────
-  Widget _buildTabBar() {
-    const labels = ['Friends', 'Add', 'QR'];
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-      child: _glass(
-        padding: const EdgeInsets.all(4),
-        child: Row(
-          children: List.generate(3, (i) {
-            final selected = _tab == i;
-            return Expanded(
-              child: GestureDetector(
-                onTap: () => setState(() => _tab = i),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  decoration: BoxDecoration(
-                    color: selected
-                        ? _accent.withOpacity(0.25)
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(14),
-                    border: selected
-                        ? Border.all(color: _accent.withOpacity(0.5))
-                        : null,
+  // ── ADD NEW FRIEND TAB (Tab 1) ────────────────────────────────────────────
+  Widget _buildAddNewFriendTab() {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 120),
+      children: [
+        // Search Input
+        const Text("ENTER FRIEND'S UID",
+            style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: _outlineVariant,
+                letterSpacing: 1.2)),
+        const SizedBox(height: 8),
+        Container(
+          height: 60,
+          decoration: BoxDecoration(
+            color: const Color(0xFFF2F4F0),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: _outlineVariant.withOpacity(0.5), width: 2),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _searchCtrl,
+                  style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                      color: _primary),
+                  decoration: const InputDecoration(
+                    hintText: '#ECO-0000',
+                    hintStyle: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black26),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(horizontal: 20),
                   ),
-                  child: Text(
-                    labels[i],
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: selected ? _accent : Colors.white60,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14,
+                  onSubmitted: (_) => _doSearch(),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: GestureDetector(
+                  onTap: _doSearch,
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: _primary,
+                      borderRadius: BorderRadius.circular(12),
                     ),
+                    child: _isSearching
+                        ? const Padding(
+                            padding: EdgeInsets.all(12.0),
+                            child: CircularProgressIndicator(
+                                color: Colors.white, strokeWidth: 2),
+                          )
+                        : const Icon(Icons.person_add, color: Colors.white),
                   ),
                 ),
               ),
-            );
-          }),
-        ),
-      ),
-    );
-  }
-
-  // ── FRIENDS TAB ───────────────────────────────────────────────────────────
-  Widget _buildFriendsTab() {
-    if (_friends.isEmpty && _requests.isEmpty) {
-      return Center(
-          child: Text('No friends yet. Add some!',
-              style:
-                  TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 16)));
-    }
-
-    final items = <Widget>[];
-
-    // ── Pending requests section ──
-    if (_requests.isNotEmpty) {
-      items.add(Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: Text('Requests (${_requests.length})',
-            style: const TextStyle(
-                color: Colors.white70,
-                fontWeight: FontWeight.w700,
-                fontSize: 13,
-                letterSpacing: 0.8)),
-      ));
-      for (int i = 0; i < _requests.length; i++) {
-        items.add(_animated(i, _buildRequestCard(_requests[i])));
-        items.add(const SizedBox(height: 10));
-      }
-      items.add(const SizedBox(height: 8));
-    }
-
-    // ── Friend list section ──
-    if (_friends.isNotEmpty) {
-      items.add(Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: Text('Friends (${_friends.length})',
-            style: const TextStyle(
-                color: Colors.white70,
-                fontWeight: FontWeight.w700,
-                fontSize: 13,
-                letterSpacing: 0.8)),
-      ));
-      for (int i = 0; i < _friends.length; i++) {
-        final f = _friends[i];
-        final rank = i + 1;
-        items.add(_animated(
-            _requests.length + i, _buildFriendCard(f, rank)));
-        items.add(const SizedBox(height: 10));
-      }
-    }
-
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
-      children: items,
-    );
-  }
-
-  // friend request card with accept / ignore image buttons
-  Widget _buildRequestCard(FriendRequest req) {
-    return _glass(
-      borderColor: _accent.withOpacity(0.35),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      child: Row(
-        children: [
-          // pet avatar
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
-                  color: Colors.white.withOpacity(0.25), width: 1.5),
-              color: const Color(0xFF1A2A22),
-            ),
-            child: ClipOval(
-              child: Image.asset(
-                _buildGif(req.species, req.level),
-                fit: BoxFit.contain,
-                filterQuality: FilterQuality.none,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(req.petName,
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14)),
-                Text('@${req.username}',
-                    style: TextStyle(
-                        color: Colors.white.withOpacity(0.55),
-                        fontSize: 12)),
-              ],
-            ),
-          ),
-          // ignore button (image)
-          GestureDetector(
-            onTap: () => _ignoreRequest(req.uid),
-            child: SizedBox(
-              width: 40,
-              height: 40,
-              child: Image.asset(
-                'widgets/ignore_button.jpeg',
-                fit: BoxFit.contain,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          // accept button (image)
-          GestureDetector(
-            onTap: () => _acceptRequest(req.uid),
-            child: SizedBox(
-              width: 40,
-              height: 40,
-              child: Image.asset(
-                'widgets/accept_button.jpeg',
-                fit: BoxFit.contain,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // friend card – same leaderboard glass style
-  Widget _buildFriendCard(FriendEntry f, int rank) {
-    final mc = _medalColor(rank);
-    final isTop3 = rank <= 3;
-
-    return _glass(
-      borderColor: isTop3 ? mc.withOpacity(0.5) : null,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      child: Row(
-        children: [
-          // rank badge
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: mc.withOpacity(0.18),
-              border: Border.all(color: mc, width: 1.5),
-            ),
-            child: Center(
-              child: Text('#$rank',
-                  style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      color: mc)),
-            ),
-          ),
-          const SizedBox(width: 12),
-          // pet avatar
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
-                  color: isTop3
-                      ? mc.withOpacity(0.7)
-                      : Colors.white.withOpacity(0.20),
-                  width: 1.5),
-              color: const Color(0xFF1A2A22),
-            ),
-            child: ClipOval(
-              child: Image.asset(
-                _buildGif(f.species, f.level),
-                fit: BoxFit.contain,
-                filterQuality: FilterQuality.none,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          // name + username
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(f.petName,
-                    style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis),
-                Text('@${f.username}',
-                    style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.white.withOpacity(0.50))),
-              ],
-            ),
-          ),
-          // streak pill
-          Container(
-            margin: const EdgeInsets.only(right: 6),
-            padding:
-                const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF59E0B).withOpacity(0.18),
-              borderRadius: BorderRadius.circular(100),
-              border: Border.all(
-                  color: const Color(0xFFF59E0B).withOpacity(0.5)),
-            ),
-            child: Text('🔥 ${f.streak}',
-                style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFFF59E0B))),
-          ),
-          // level pill
-          Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: _secondary.withOpacity(0.25),
-              borderRadius: BorderRadius.circular(100),
-              border: Border.all(color: _secondary.withOpacity(0.5)),
-            ),
-            child: Text('Lv. ${f.level}',
-                style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: _accent)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── ADD TAB ───────────────────────────────────────────────────────────────
-  Widget _buildAddTab() {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
-      children: [
-        _glass(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Find by username',
-                  style: TextStyle(
-                      color: Colors.white70,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13,
-                      letterSpacing: 0.8)),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-                        child: TextField(
-                          controller: _searchCtrl,
-                          style: const TextStyle(color: Colors.white),
-                          decoration: InputDecoration(
-                            hintText: 'Enter username...',
-                            hintStyle: TextStyle(
-                                color: Colors.white.withOpacity(0.4)),
-                            filled: true,
-                            fillColor: Colors.white.withOpacity(0.10),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
-                                  color: Colors.white.withOpacity(0.2)),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
-                                  color: Colors.white.withOpacity(0.2)),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
-                                  color: _accent.withOpacity(0.6),
-                                  width: 1.5),
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 12),
-                          ),
-                          onSubmitted: (_) => _doSearch(),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  GestureDetector(
-                    onTap: _doSearch,
-                    child: Container(
-                      width: 46,
-                      height: 46,
-                      decoration: BoxDecoration(
-                        color: _accent.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                            color: _accent.withOpacity(0.5), width: 1.5),
-                      ),
-                      child: _isSearching
-                          ? const Padding(
-                              padding: EdgeInsets.all(12),
-                              child: CircularProgressIndicator(
-                                  color: _accent, strokeWidth: 2),
-                            )
-                          : const Icon(Icons.search,
-                              color: _accent, size: 22),
-                    ),
-                  ),
-                ],
-              ),
-              if (_searchError != null) ...[
-                const SizedBox(height: 12),
-                Text(_searchError!,
-                    style: const TextStyle(color: Colors.redAccent)),
-              ],
-              if (_searchResult != null) ...[
-                const SizedBox(height: 16),
-                _buildSearchResultCard(_searchResult!),
-              ],
             ],
+          ),
+        ),
+
+        if (_searchError != null) ...[
+          const SizedBox(height: 12),
+          Text(_searchError!, style: const TextStyle(color: Colors.red)),
+        ],
+
+        if (_searchResult != null) ...[
+          const SizedBox(height: 16),
+          _buildSearchResultHTMLStyle(_searchResult!),
+        ],
+
+        const SizedBox(height: 32),
+
+        // QR Code Section
+        _glassPanel(
+          padding: const EdgeInsets.all(32),
+          borderRadius: 40,
+          child: Column(
+            children: [
+              const Text('Your Pal Code',
+                  style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: _onSurface)),
+              const SizedBox(height: 24),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: _outlineVariant.withOpacity(0.3)),
+                  boxShadow: const [
+                    BoxShadow(color: Colors.black12, blurRadius: 8)
+                  ],
+                ),
+
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    QrImageView(
+                      data: _uid.isEmpty ? 'ECO-0000' : _uid,
+                      version: QrVersions.auto,
+                      size: 180,
+                      backgroundColor: Colors.white,
+                      eyeStyle: const QrEyeStyle(
+                        eyeShape: QrEyeShape.square,
+                        color: Color(0xFF0F5238),
+                      ),
+                      dataModuleStyle: const QrDataModuleStyle(
+                        dataModuleShape: QrDataModuleShape.square,
+                        color: Color(0xFF0F5238),
+                      ),
+                    ),
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: _petGifPath.isEmpty
+                          ? const SizedBox()
+                          : Image.asset(
+                              _petGifPath,
+                              fit: BoxFit.contain,
+                              filterQuality: FilterQuality.none,
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              const Text(
+                  'Let friends scan this to instantly connect to your garden.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 12, color: _onSurfaceVariant)),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 24),
+
+        // Scan Button
+        GestureDetector(
+          onTap: () async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const QRScannerPage()),
+            );
+          },
+          child: Container(
+            width: double.infinity,
+            height: 64,
+            decoration: BoxDecoration(
+              color: _primary,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                    color: _primary.withOpacity(0.3),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4))
+              ],
+            ),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.qr_code_scanner, color: Colors.white, size: 28),
+                SizedBox(width: 12),
+                Text('Scan QR Code',
+                    style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white)),
+              ],
+            ),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildSearchResultCard(Map<String, dynamic> result) {
-    final species =
-        (result['species'] ?? 'tabby').toString().toLowerCase();
-    final level = result['level'] ?? 1;
-    final uid = result['uid'] ?? '';
-
-    return _glass(
-      borderColor: _accent.withOpacity(0.4),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+  Widget _buildSearchResultHTMLStyle(Map<String, dynamic> result) {
+    return _glassPanel(
+      padding: const EdgeInsets.all(16),
+      borderRadius: 16,
       child: Row(
         children: [
           Container(
-            width: 50,
-            height: 50,
+            width: 48,
+            height: 48,
             decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
-                  color: _accent.withOpacity(0.5), width: 1.5),
-              color: const Color(0xFF1A2A22),
+              color: const Color(0xFFECEEEA),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _outlineVariant.withOpacity(0.3)),
             ),
-            child: ClipOval(
+            child: Padding(
+              padding: const EdgeInsets.all(4.0),
               child: Image.asset(
-                _buildGif(species, level),
-                fit: BoxFit.contain,
-                filterQuality: FilterQuality.none,
-              ),
+                  _buildGif(result['species'] ?? 'tabby', result['level'] ?? 1),
+                  fit: BoxFit.contain,
+                  filterQuality: FilterQuality.none),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(result['pet_name'] ?? 'Unknown',
+                Text(result['username'] ?? 'User',
                     style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 15)),
-                Text('@${result['username'] ?? ''}',
-                    style: TextStyle(
-                        color: Colors.white.withOpacity(0.55),
-                        fontSize: 12)),
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: _onSurface)),
+                Text(result['pet_name'] ?? 'Pet',
+                    style: const TextStyle(
+                        fontSize: 12, color: _onSurfaceVariant)),
               ],
             ),
           ),
-          // Add Friend button – same fish-drag style pill
-          GestureDetector(
-            onTap: () => _sendRequest(uid),
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                    colors: [Color(0xFF1DB46A), _accent]),
-                borderRadius: BorderRadius.circular(100),
-                boxShadow: [
-                  BoxShadow(
-                      color: _accent.withOpacity(0.4),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2)),
-                ],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Image.asset('widgets/add_friend.png',
-                      width: 18,
-                      height: 18,
-                      fit: BoxFit.contain,
-                      color: Colors.white),
-                  const SizedBox(width: 6),
-                  const Text('Add',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 13)),
-                ],
-              ),
+          ElevatedButton.icon(
+            onPressed: () => _sendRequest(result['uid']),
+            icon: const Icon(Icons.add, size: 16, color: Colors.white),
+            label: const Text('Add', style: TextStyle(color: Colors.white)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _primary,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+              elevation: 0,
             ),
           ),
         ],
@@ -819,129 +1379,107 @@ class _FriendsPageState extends State<FriendsPage>
     );
   }
 
-  // ── QR TAB ────────────────────────────────────────────────────────────────
-  Widget _buildQrTab() {
-    return Center(
-      child: _glass(
-        padding: const EdgeInsets.all(28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.qr_code_2_rounded,
-                color: _accent, size: 120),
-            const SizedBox(height: 16),
-            Text(_username,
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 18)),
-            const SizedBox(height: 8),
-            SelectableText(_uid,
-                style: TextStyle(
-                    color: Colors.white.withOpacity(0.5),
-                    fontSize: 11)),
-            const SizedBox(height: 20),
-            GestureDetector(
-              onTap: () {
-                Clipboard.setData(ClipboardData(text: _uid));
-                ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('UID copied!')));
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 20, vertical: 10),
-                decoration: BoxDecoration(
-                  border: Border.all(color: _accent.withOpacity(0.5)),
-                  borderRadius: BorderRadius.circular(100),
-                ),
-                child: const Text('Copy UID',
-                    style: TextStyle(
-                        color: _accent,
-                        fontWeight: FontWeight.w700)),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ── build ──────────────────────────────────────────────────────────────────
+  // ── Main Build ────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       extendBody: true,
       body: Stack(
         children: [
-          // Background
+          // Background Image (As requested, keeping the GIF)
           Positioned.fill(
             child: Image.asset(
               'widgets/friend_background.gif',
               fit: BoxFit.cover,
             ),
           ),
-          Positioned.fill(
-            child: Container(color: Colors.black.withOpacity(0.35)),
-          ),
+          // We don't use the dark overlay anymore to match the Light HTML style
+          // Positioned.fill(child: Container(color: Colors.white.withOpacity(0.1))),
 
           SafeArea(
             child: Column(
               children: [
-                // Top bar (UID + pet avatar)
-                _buildTopBar(),
-
-                const SizedBox(height: 4),
-
-                // Page title
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: _glass(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 12),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          'Friends',
-                          style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.white,
-                              letterSpacing: 0.3),
-                        ),
-                        SizedBox(width: 8),
-                        Text('🐾', style: TextStyle(fontSize: 18)),
-                      ],
-                    ),
-                  ),
-                ),
-
-                // Tab bar
-                _buildTabBar(),
-
-                const SizedBox(height: 8),
-
-                // Tab content
+                _buildTopAppBar(),
                 Expanded(
-                  child: _isLoading
-                      ? const Center(
-                          child: CircularProgressIndicator(
-                              color: _accent))
-                      : IndexedStack(
-                          index: _tab,
-                          children: [
-                            _buildFriendsTab(),
-                            _buildAddTab(),
-                            _buildQrTab(),
-                          ],
-                        ),
+                  child: Column(
+                    children: [
+                      _buildHeaderCard(),
+                      _buildSegmentedNav(),
+                      Expanded(
+                        child: _isLoading
+                            ? const Center(
+                                child: CircularProgressIndicator(color: _primary))
+                            : IndexedStack(
+                                index: _tab,
+                                children: [
+                                  _buildFriendsListTab(),
+                                  _buildAddNewFriendTab(),
+                                ],
+                              ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
         ],
       ),
-      bottomNavigationBar: const EcoPalBottomBar(currentIndex: 3),
+      bottomNavigationBar: const EcoPalBottomBar(currentIndex: 4),
     );
   }
 }
+      class QRScannerPage extends StatefulWidget {
+    const QRScannerPage({super.key});
+
+    @override
+    State<QRScannerPage> createState() => _QRScannerPageState();
+  }
+
+  class _QRScannerPageState extends State<QRScannerPage> {
+    MobileScannerController cameraController = MobileScannerController();
+    bool _scanned = false;
+
+    @override
+    void dispose() {
+      cameraController.dispose();
+      super.dispose();
+    }
+
+    @override
+    Widget build(BuildContext context) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Scan QR Code'),
+          backgroundColor: const Color(0xFF0F5238),
+          foregroundColor: Colors.white,
+        ),
+        body: MobileScanner(
+          controller: cameraController,
+          onDetect: (capture) async {
+            if (_scanned) return;
+            final barcode = capture.barcodes.first;
+            final value = barcode.rawValue;
+            if (value != null) {
+              _scanned = true;
+              try {
+                await ApiService.sendFriendRequest(value);
+                if (mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Friend request sent!')),
+                  );
+                }
+              } catch (_) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Failed to send request.')),
+                  );
+                }
+              }
+            }
+          },
+        ),
+      );
+    }
+  }
