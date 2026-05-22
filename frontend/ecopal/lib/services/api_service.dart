@@ -10,7 +10,7 @@ class ApiService {
   //static bool isMockData = false;
 static bool isMockData = false;
 
-  //static const String baseUrl = 'https://utmhackathon-ecopal-1.onrender.com';
+  //static const String baseUrl = 'http://127.0.0.1:8000';
    static const String baseUrl = 'http://127.0.0.1:8000';
 
   static String? _getAuthToken() {
@@ -481,18 +481,21 @@ static bool isMockData = false;
       }
     }
 
-    static Future<List<dynamic>> getFriends() async {
-      if (isMockData) {
-        await _initMockFriendsData();
-        return _mockFriendsCache!;
-      }
-      final token = _getAuthToken();
-      final response = await http.get(
-        Uri.parse('$baseUrl/friends'),
-        headers: {'Authorization': 'Bearer $token'},
-      );
-      if (response.statusCode != 200) throw Exception('Failed to load friends');
-      return jsonDecode(response.body) as List<dynamic>;
+    static Future<dynamic> getFriends() async {
+          if (isMockData) {
+            await _initMockFriendsData();
+            return _mockFriendsCache!; 
+          }
+          final token = _getAuthToken();
+          final response = await http.get(
+            Uri.parse('$baseUrl/friends'),
+            headers: {'Authorization': 'Bearer $token'},
+          );
+          
+          if (response.statusCode != 200) throw Exception('Failed to load friends');
+          
+          // 🔥 2. Removed "as List<dynamic>" so it accepts the new Map/Dictionary format!
+          return jsonDecode(response.body); 
     }
 
     static Future<List<dynamic>> getFriendRequests() async {
@@ -509,22 +512,23 @@ static bool isMockData = false;
       return jsonDecode(response.body) as List<dynamic>;
     }
 
-    static Future<Map<String, dynamic>?> searchUser(String username) async {
+    static Future<Map<String, dynamic>?> searchUser(String uid) async {
       if (isMockData) {
         await Future.delayed(const Duration(milliseconds: 500));
         return {
-          "uid": "u999-mock-search",
-          "username": username,
+          "uid": uid,
+          "username": "MockUser",
           "pet_name": "Ghost",
           "species": "tabby",
           "level": 99
         };
       }
       final token = _getAuthToken();
-      final uri = Uri.parse('$baseUrl/users/search')
-          .replace(queryParameters: {'username': username});
+      // Changed to use the path variable matching Python: /users/search/{target_uid}
+      final uri = Uri.parse('$baseUrl/users/search/$uid'); 
       final response = await http.get(uri, headers: {'Authorization': 'Bearer $token'});
-      if (response.statusCode == 404) return null;
+      
+      if (response.statusCode == 404 || response.statusCode == 400) return null;
       if (response.statusCode != 200) throw Exception('Search failed');
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
@@ -536,9 +540,9 @@ static bool isMockData = false;
       }
       final token = _getAuthToken();
       final response = await http.post(
-        Uri.parse('$baseUrl/friends/request'),
+        Uri.parse('$baseUrl/friends/add'), // Matches Python @app.post("/friends/add")
         headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
-        body: jsonEncode({'target_uid': targetUid}),
+        body: jsonEncode({'friend_id': targetUid}), // Matches Python AddFriendRequest
       );
       if (response.statusCode != 200 && response.statusCode != 201) {
         throw Exception('Failed to send request');
@@ -548,39 +552,49 @@ static bool isMockData = false;
     static Future<void> acceptFriendRequest(String senderUid) async {
       if (isMockData) {
         await Future.delayed(const Duration(milliseconds: 300));
-        if (_mockRequestsCache != null) {
-          final requestIndex = _mockRequestsCache!.indexWhere((r) => r['uid'] == senderUid);
-          if (requestIndex != -1) {
-            final acceptedUser = _mockRequestsCache!.removeAt(requestIndex);
-            acceptedUser['streak'] = 0; 
-            _mockFriendsCache?.add(acceptedUser);
-          }
-        }
         return;
       }
       final token = _getAuthToken();
-      final response = await http.post(
-        Uri.parse('$baseUrl/friends/accept'),
+      
+      final response = await http.post( 
+        Uri.parse('$baseUrl/friends/accept'), 
         headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
-        body: jsonEncode({'sender_uid': senderUid}),
+        body: jsonEncode({'friend_id': senderUid, 'status': 'accepted'}), 
       );
+      
       if (response.statusCode != 200) throw Exception('Failed to accept');
     }
 
     static Future<void> ignoreFriendRequest(String senderUid) async {
       if (isMockData) {
         await Future.delayed(const Duration(milliseconds: 300));
-        if (_mockRequestsCache != null) {
-          _mockRequestsCache!.removeWhere((r) => r['uid'] == senderUid);
-        }
         return;
       }
       final token = _getAuthToken();
-      final response = await http.post(
-        Uri.parse('$baseUrl/friends/ignore'),
-        headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
-        body: jsonEncode({'sender_uid': senderUid}),
+      final response = await http.delete( // Matches Python @app.delete
+        Uri.parse('$baseUrl/friends/$senderUid'), // Matches Python route format
+        headers: {'Authorization': 'Bearer $token'},
       );
       if (response.statusCode != 200) throw Exception('Failed to ignore');
+    }
+
+  // ── SEND CHAT MESSAGE ──────────────────────────────────────────────────
+    static Future<void> sendMessage(String receiverId, {String? text, String? stickerPath}) async {
+      if (isMockData) return;
+      
+      final token = _getAuthToken();
+      final response = await http.post(
+        Uri.parse('$baseUrl/messages/send'),
+        headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
+        body: jsonEncode({
+          'receiver_id': receiverId,
+          'text': text ?? "",
+          'sticker_path': stickerPath,
+        }),
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception('Failed to send message: ${response.statusCode}');
+      }
     }
 }

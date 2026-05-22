@@ -1,24 +1,26 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../services/api_service.dart'; // Ensure this path is correct
 
-// ── 聊天消息 model ─────────────────────────────────────────────────────────
+// ── Chat Message Model ───────────────────────────────────────────────────────
 class ChatMessage {
-  final String text;        // 文字消息，sticker 时为空
-  final String? stickerPath; // sticker 图片路径，文字消息时为 null
-  final bool isMe;          // true = 自己发的，false = 对方发的
+  final String text;          // Text message content
+  final String? stickerPath;  // Null if it's a text message
+  final bool isMe;            // true = sent by current user, false = received
   final DateTime time;
 
   ChatMessage({
     this.text = '',
     this.stickerPath,
     required this.isMe,
-    DateTime? time,
-  }) : time = time ?? DateTime.now();
+    required this.time,
+  });
 
-  bool get isSticker => stickerPath != null; // 判断是不是 sticker
+  bool get isSticker => stickerPath != null; 
 }
 
-// ── 可用的 sticker 列表（用已有的猫咪 gif）─────────────────────────────────
+// ── Available Stickers (Using existing cat GIFs) ─────────────────────────────
 const List<Map<String, String>> kStickers = [
   {'path': 'widgets/tabby/kitten/kit_happy.gif',   'label': 'Happy'},
   {'path': 'widgets/tabby/kitten/kit_idle.gif',    'label': 'Idle'},
@@ -34,12 +36,14 @@ const List<Map<String, String>> kStickers = [
 
 // ── ChatPage ───────────────────────────────────────────────────────────────
 class ChatPage extends StatefulWidget {
-  final String friendUsername; // 朋友的用户名
-  final String friendSpecies;  // 朋友的猫咪种类（显示头像用）
-  final int friendLevel;       // 朋友的等级
+  final String friendUid;      // 🔥 NEW: We need their ID to send messages!
+  final String friendUsername; 
+  final String friendSpecies;  
+  final int friendLevel;       
 
   const ChatPage({
     super.key,
+    required this.friendUid,
     required this.friendUsername,
     required this.friendSpecies,
     required this.friendLevel,
@@ -52,36 +56,92 @@ class ChatPage extends StatefulWidget {
 class _ChatPageState extends State<ChatPage> {
   final TextEditingController _msgCtrl = TextEditingController();
   final ScrollController _scrollCtrl = ScrollController();
-  final List<ChatMessage> _messages = [];
-  bool _showStickerPicker = false; // 控制 sticker 面板显示/隐藏
+  List<ChatMessage> _messages = [];
+  bool _showStickerPicker = false; 
+  String _myUid = '';
 
-  // ── 颜色 ──────────────────────────────────────────────────────────────────
+  // Supabase realtime subscription
+  RealtimeChannel? _messageSubscription;
+
+  // ── Colors ──────────────────────────────────────────────────────────────────
   static const Color _primary = Color(0xFF0F5238);
-  static const Color _bubble = Color(0xFFB1F0CE);     // 自己的气泡颜色
-  static const Color _bubbleFriend = Color(0xFFF0F0F0); // 对方的气泡颜色
+  static const Color _bubble = Color(0xFFB1F0CE);     // My bubble color
+  static const Color _bubbleFriend = Color(0xFFF0F0F0); // Friend bubble color
 
   @override
   void initState() {
     super.initState();
-    // 加几条 mock 消息作为示例
-    _messages.addAll([
-      ChatMessage(text: 'Hey! How\'s your garden doing? 🌱', isMe: false,
-          time: DateTime.now().subtract(const Duration(minutes: 5))),
-      ChatMessage(text: 'Pretty good! Just unlocked a new tree 🎉', isMe: true,
-          time: DateTime.now().subtract(const Duration(minutes: 4))),
-      ChatMessage(stickerPath: 'widgets/tabby/kitten/kit_happy.gif', isMe: false,
-          time: DateTime.now().subtract(const Duration(minutes: 3))),
-    ]);
+    _myUid = Supabase.instance.client.auth.currentUser?.id ?? '';
+    _loadChatHistory();
+    _setupRealtimeListener();
   }
 
   @override
   void dispose() {
     _msgCtrl.dispose();
     _scrollCtrl.dispose();
+    _messageSubscription?.unsubscribe(); // 🔥 Clean up the listener when leaving
     super.dispose();
   }
 
-  // ── 获取朋友的猫咪头像 gif ─────────────────────────────────────────────
+  // ── 1. Load Past Messages ─────────────────────────────────────────────────
+  Future<void> _loadChatHistory() async {
+    try {
+      // Ask Supabase directly for history between these two users
+      final data = await Supabase.instance.client
+          .from('messages')
+          .select()
+          .or('and(sender_id.eq.$_myUid,receiver_id.eq.${widget.friendUid}),and(sender_id.eq.${widget.friendUid},receiver_id.eq.$_myUid)')
+          .order('created_at', ascending: true);
+
+      setState(() {
+        _messages = data.map<ChatMessage>((row) => ChatMessage(
+          text: row['text'] ?? '',
+          stickerPath: row['sticker_path'],
+          isMe: row['sender_id'] == _myUid,
+          time: DateTime.parse(row['created_at']).toLocal(),
+        )).toList();
+      });
+      _scrollToBottom();
+    } catch (e) {
+      debugPrint("Error loading history: $e");
+    }
+  }
+
+  // ── 2. The Live Walkie-Talkie (Realtime) ──────────────────────────────────
+  void _setupRealtimeListener() {
+    _messageSubscription = Supabase.instance.client
+        .channel('public:messages')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'messages',
+          callback: (payload) {
+            final newRow = payload.newRecord;
+            
+            // Safety check: ensure it's not null before trying to read it
+            if (newRow == null) return;
+
+            // Only show it if it belongs to this specific chat room
+            if ((newRow['sender_id'] == _myUid && newRow['receiver_id'] == widget.friendUid) ||
+                (newRow['sender_id'] == widget.friendUid && newRow['receiver_id'] == _myUid)) {
+              
+              setState(() {
+                _messages.add(ChatMessage(
+                  text: newRow['text'] ?? '',
+                  stickerPath: newRow['sticker_path'],
+                  isMe: newRow['sender_id'] == _myUid,
+                  time: DateTime.parse(newRow['created_at']).toLocal(),
+                ));
+              });
+              _scrollToBottom();
+            }
+          },
+        )
+        .subscribe();
+  }
+
+  // ── Get Friend Avatar GIF ─────────────────────────────────────────────
   String get _friendGif {
     final s = widget.friendSpecies.toLowerCase();
     final folder2 = widget.friendLevel <= 3 ? 'kitten' : 'cat';
@@ -91,7 +151,7 @@ class _ChatPageState extends State<ChatPage> {
     return 'widgets/$s/$folder2/${prefix}idle.gif';
   }
 
-  // ── 滚动到底部 ────────────────────────────────────────────────────────────
+  // ── Scroll to Bottom ──────────────────────────────────────────────────────
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollCtrl.hasClients) {
@@ -104,35 +164,41 @@ class _ChatPageState extends State<ChatPage> {
     });
   }
 
-  // ── 发送文字消息 ──────────────────────────────────────────────────────────
-  void _sendText() {
+  // ── Send Text Message ─────────────────────────────────────────────────────
+  Future<void> _sendText() async {
     final text = _msgCtrl.text.trim();
     if (text.isEmpty) return;
-    setState(() {
-      _messages.add(ChatMessage(text: text, isMe: true));
-      _msgCtrl.clear();
-      _showStickerPicker = false;
-    });
-    _scrollToBottom();
+    
+    // Clear UI instantly for better feel, backend handles the save
+    _msgCtrl.clear(); 
+    setState(() => _showStickerPicker = false);
+
+    try {
+      await ApiService.sendMessage(widget.friendUid, text: text);
+    } catch (e) {
+      debugPrint("Failed to send text: $e");
+    }
   }
 
-  // ── 发送 sticker ──────────────────────────────────────────────────────────
-  void _sendSticker(String path) {
-    setState(() {
-      _messages.add(ChatMessage(stickerPath: path, isMe: true));
-      _showStickerPicker = false; // 发完自动关闭面板
-    });
-    _scrollToBottom();
+  // ── Send Sticker ──────────────────────────────────────────────────────────
+  Future<void> _sendSticker(String path) async {
+    setState(() => _showStickerPicker = false); // Close panel automatically
+    
+    try {
+      await ApiService.sendMessage(widget.friendUid, stickerPath: path);
+    } catch (e) {
+      debugPrint("Failed to send sticker: $e");
+    }
   }
 
-  // ── 格式化时间 ────────────────────────────────────────────────────────────
+  // ── Format Time ───────────────────────────────────────────────────────────
   String _formatTime(DateTime t) {
     final h = t.hour.toString().padLeft(2, '0');
     final m = t.minute.toString().padLeft(2, '0');
     return '$h:$m';
   }
 
-  // ── 构建单条消息气泡 ──────────────────────────────────────────────────────
+  // ── Build Single Message Bubble ───────────────────────────────────────────
   Widget _buildBubble(ChatMessage msg) {
     final isMe = msg.isMe;
 
@@ -143,7 +209,7 @@ class _ChatPageState extends State<ChatPage> {
             isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          // 对方头像（只有对方消息才显示）
+          // Friend Avatar (Only show on their messages)
           if (!isMe) ...[
             Container(
               width: 36,
@@ -162,14 +228,13 @@ class _ChatPageState extends State<ChatPage> {
             const SizedBox(width: 8),
           ],
 
-          // 消息内容
+          // Message Content
           Column(
             crossAxisAlignment:
                 isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
             children: [
-              // sticker 或者文字气泡
               if (msg.isSticker)
-                // sticker：直接显示图片，没有气泡背景
+                // Sticker: Direct image display, no background bubble
                 Container(
                   width: 90,
                   height: 90,
@@ -181,7 +246,7 @@ class _ChatPageState extends State<ChatPage> {
                       filterQuality: FilterQuality.none),
                 )
               else
-                // 文字气泡
+                // Text Bubble
                 Container(
                   constraints: const BoxConstraints(maxWidth: 230),
                   padding: const EdgeInsets.symmetric(
@@ -207,7 +272,7 @@ class _ChatPageState extends State<ChatPage> {
                 ),
 
               const SizedBox(height: 3),
-              // 时间戳
+              // Timestamp
               Text(
                 _formatTime(msg.time),
                 style: const TextStyle(
@@ -216,14 +281,14 @@ class _ChatPageState extends State<ChatPage> {
             ],
           ),
 
-          // 自己头像占位（保持对称，不显示）
+          // Spacer for my messages to keep symmetry
           if (isMe) const SizedBox(width: 44),
         ],
       ),
     );
   }
 
-  // ── Sticker 选择面板 ──────────────────────────────────────────────────────
+  // ── Sticker Selection Panel ───────────────────────────────────────────────
   Widget _buildStickerPicker() {
     return Container(
       height: 180,
@@ -235,7 +300,7 @@ class _ChatPageState extends State<ChatPage> {
       ),
       child: GridView.builder(
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 5,   // 每行 5 个 sticker
+          crossAxisCount: 5,   // 5 stickers per row
           crossAxisSpacing: 8,
           mainAxisSpacing: 8,
         ),
@@ -276,7 +341,6 @@ class _ChatPageState extends State<ChatPage> {
         ),
         title: Row(
           children: [
-            // 朋友猫咪头像
             Container(
               width: 40,
               height: 40,
@@ -292,7 +356,6 @@ class _ChatPageState extends State<ChatPage> {
               ),
             ),
             const SizedBox(width: 12),
-            // 朋友名字
             Text(
               widget.friendUsername,
               style: const TextStyle(
@@ -308,7 +371,7 @@ class _ChatPageState extends State<ChatPage> {
       // ── Body ─────────────────────────────────────────────────────────────
       body: Column(
         children: [
-          // 消息列表
+          // Message List
           Expanded(
             child: ListView.builder(
               controller: _scrollCtrl,
@@ -318,10 +381,10 @@ class _ChatPageState extends State<ChatPage> {
             ),
           ),
 
-          // Sticker 面板（按下按钮才显示）
+          // Sticker Panel (Shows when button is tapped)
           if (_showStickerPicker) _buildStickerPicker(),
 
-          // ── 输入栏 ────────────────────────────────────────────────────
+          // ── Input Bar ────────────────────────────────────────────────────
           Container(
             padding: EdgeInsets.only(
               left: 12,
@@ -335,7 +398,7 @@ class _ChatPageState extends State<ChatPage> {
             ),
             child: Row(
               children: [
-                // Sticker 按钮
+                // Sticker Button
                 GestureDetector(
                   onTap: () => setState(
                       () => _showStickerPicker = !_showStickerPicker),
@@ -354,7 +417,7 @@ class _ChatPageState extends State<ChatPage> {
                 ),
                 const SizedBox(width: 10),
 
-                // 文字输入框
+                // Text Input Field
                 Expanded(
                   child: Container(
                     height: 44,
@@ -366,7 +429,7 @@ class _ChatPageState extends State<ChatPage> {
                       controller: _msgCtrl,
                       style: const TextStyle(fontSize: 15),
                       textInputAction: TextInputAction.send,
-                      onSubmitted: (_) => _sendText(), // 键盘回车发送
+                      onSubmitted: (_) => _sendText(), // Send on keyboard enter
                       decoration: const InputDecoration(
                         hintText: 'Type a message...',
                         hintStyle: TextStyle(
@@ -380,7 +443,7 @@ class _ChatPageState extends State<ChatPage> {
                 ),
                 const SizedBox(width: 10),
 
-                // 发送按钮
+                // Send Button
                 GestureDetector(
                   onTap: _sendText,
                   child: Container(

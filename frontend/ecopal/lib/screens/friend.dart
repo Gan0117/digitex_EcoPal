@@ -34,7 +34,7 @@ class FriendEntry {
   });
 
   factory FriendEntry.fromJson(Map<String, dynamic> j) => FriendEntry(
-        uid: j['uid'] ?? '',
+        uid: j['user_id'] ?? j['uid'] ?? '',
         username: j['username'] ?? 'user',
         petName: j['pet_name'] ?? 'Unknown',
         species: j['species'] ?? 'tabby',
@@ -64,7 +64,7 @@ class FriendRequest {
   });
 
   factory FriendRequest.fromJson(Map<String, dynamic> j) => FriendRequest(
-        uid: j['uid'] ?? '',
+        uid: j['user_id'] ?? j['uid'] ?? '',
         username: j['username'] ?? 'user',
         petName: j['pet_name'] ?? 'Unknown',
         species: j['species'] ?? 'tabby',
@@ -174,8 +174,9 @@ class _FriendsPageState extends State<FriendsPage>
     try {
       final profile = await ApiService.getProfile();
       final pet = await ApiService.getPetStatus();
-      final friendsRaw = await ApiService.getFriends();
-      final requestsRaw = await ApiService.getFriendRequests();
+      
+      // 🔥 1. We only need ONE API call now! The backend returns everything in a Map.
+      final friendsData = await ApiService.getFriends(); 
 
       if (!mounted) return;
 
@@ -187,10 +188,15 @@ class _FriendsPageState extends State<FriendsPage>
         _petName = pet['name'] ?? 'Companion';
         _petGifPath = _buildGif(_species, _petLevel);
 
-        _friends = (friendsRaw as List)
+        // 🔥 2. Extract the specific lists from the backend's JSON dictionary
+        final List rawFriendsList = friendsData['friend_list'] ?? [];
+        final List rawRequestsIn = friendsData['requests_in'] ?? [];
+
+        _friends = rawFriendsList
             .map((e) => FriendEntry.fromJson(e as Map<String, dynamic>))
             .toList();
-        _requests = (requestsRaw as List)
+            
+        _requests = rawRequestsIn
             .map((e) => FriendRequest.fromJson(e as Map<String, dynamic>))
             .toList();
 
@@ -355,10 +361,6 @@ class _FriendsPageState extends State<FriendsPage>
               ),
             ],
           ),
-          IconButton(
-            icon: const Icon(Icons.notifications_none_rounded, color: _primary),
-            onPressed: () {},
-          ),
         ],
       ),
     );
@@ -400,17 +402,39 @@ Widget _buildHeaderCard() {
               ),
             ),
             const SizedBox(height: 4),
-            Text(
-              _uid.length > 4
-                  ? '#ECO-${_uid.substring(0, 4).toUpperCase()}'
-                  : '#ECO-0000',
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 1.0,
-                color: Color(0xFF707973),
+            GestureDetector(
+            onTap: () {
+              Clipboard.setData(ClipboardData(text: _uid));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('UID copied!')),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE7E9E5),
+                borderRadius: BorderRadius.circular(20),
               ),
-            ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _uid.length > 4
+                        ? '#ECO-${_uid.substring(0, 4).toUpperCase()}'
+                        : '#ECO-0000',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1.0,
+                      color: Color(0xFF707973),
+                    ),
+                  ),
+            const SizedBox(width: 6),
+            const Icon(Icons.copy, size: 12, color: Color(0xFF707973)),
+      ],
+    ),
+  ),
+),
           ],
         ),
       ),
@@ -1044,6 +1068,7 @@ void _showFriendProfileDialog(FriendEntry friend) {
                     context,
                     MaterialPageRoute(
                       builder: (_) => ChatPage(
+                        friendUid: friend.uid,
                         friendUsername: friend.username,
                         friendSpecies: friend.species,
                         friendLevel: friend.level,
