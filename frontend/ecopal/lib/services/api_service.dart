@@ -10,7 +10,7 @@ class ApiService {
   //static bool isMockData = false;
 static bool isMockData = true;
 
-  //static const String baseUrl = 'https://utmhackathon-ecopal-1.onrender.com';
+  //static const String baseUrl = 'http://127.0.0.1:8000';
    static const String baseUrl = 'http://127.0.0.1:8000';
 
   static String? _getAuthToken() {
