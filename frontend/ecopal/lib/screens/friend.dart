@@ -1482,6 +1482,7 @@ void _showFriendProfileDialog(FriendEntry friend) {
         body: MobileScanner(
           controller: cameraController,
           onDetect: (capture) async {
+            if (capture.barcodes.isEmpty) return;
             if (_scanned) return;
             final barcode = capture.barcodes.first;
             final value = barcode.rawValue;
