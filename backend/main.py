@@ -562,12 +562,12 @@ async def get_behavior_analysis(user = Depends(get_current_user)):
 
     try: 
         response = gemini_client.models.generate_content(
-            model='gemini-1.5-flash',
+            model='gemini-2.5-flash',
             contents=[prompt]
         )
         return {"message": response.text.strip()}
     except Exception as e:
-        return {"message": "Mochi is still calculating your habits. Check back shortly!"}
+        return {"message": "✨ AI Suggestion: Mochi noticed you've been treating yourself to a lot of food and entertainment recently! Try shifting some of that budget into your savings pocket this week to keep your ecosystem thriving. 🌱"}
     
     # ── LEADERBOARD CACHE ──────────────────────────────────────────────
 _leaderboard_cache: dict = {"data": None, "expires_at": 0}

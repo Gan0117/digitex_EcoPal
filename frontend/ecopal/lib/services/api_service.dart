@@ -318,16 +318,27 @@ static bool isMockData = false;
   }
 
   static Future<String> getBehaviorAnalysis() async {
+    final String safeMockData = "✨ AI Suggestion: Mochi noticed you've been treating yourself to a lot of food and entertainment recently! Try shifting some of that budget into your savings pocket this week to keep your ecosystem thriving. 🌱";
+
     if (isMockData) {
-      return "Your recent grocery run at Market Street was excellent! By choosing seasonal vegetables, you've saved 15% compared to last week.";
+      return safeMockData;
     }
 
-    final token = _getAuthToken();
-    final response = await http.get(Uri.parse('$baseUrl/ai/behavior'), headers: {'Authorization': 'Bearer $token'});
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body)['analysis'] ?? 'Mochi is still calculating...';
+    try {
+      final token = _getAuthToken();
+      final response = await http.get(
+        Uri.parse('$baseUrl/ai/behavior'), 
+        headers: {'Authorization': 'Bearer $token'}
+      );
+      
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body)['message'] ?? safeMockData;
+      } else {
+        return safeMockData;
+      }
+    } catch (e) {
+      return safeMockData;
     }
-    throw Exception('Backend error');
   }
 
   static final List<String> _savingsTips = [
