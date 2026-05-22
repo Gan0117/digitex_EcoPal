@@ -1,0 +1,74 @@
+{
+  "friends": [
+    {
+      "friend_ID": "001",
+      "request_from_ID": "09d9b4e9-4199-44fc-97b0-dc3db51038c4",
+      "address_to_ID": "2aa43d59-7a1e-4842-b40b-2be7416adb19",
+      "status": "pending",
+      "create_at": "2026-05-11 14:45:21.158055+00"
+    },
+    {
+      "friend_ID": "002",
+      "request_from_ID": "4d28362d-8ab1-4e78-8316-83679ea8149e",
+      "address_to_ID": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+      "status": "accepted",
+      "create_at": "2026-05-12 09:12:45.882103+00"
+    },
+    {
+      "friend_ID": "003",
+      "request_from_ID": "c1a3f890-5b12-42c1-8d2a-7e61b90c1f21",
+      "address_to_ID": "f092a71d-8431-4819-a1b4-2195f37bc449",
+      "status": "reject",
+      "create_at": "2026-05-13 18:30:10.123456+00"
+    },
+    {
+      "friend_ID": "004",
+      "request_from_ID": "7a8b9c0d-1e2f-4a3b-5c6d-7e8f9a0b1c2d",
+      "address_to_ID": "3f4e5d6c-7b8a-4910-b2c3-d4e5f6a7b8c9",
+      "status": "pending",
+      "create_at": "2026-05-14 07:22:19.495821+00"
+    },
+    {
+      "friend_ID": "005",
+      "request_from_ID": "123e4567-e89b-12d3-a456-426614174000",
+      "address_to_ID": "88f8d9b1-5e6a-4d2c-9b8e-7f6a5d4c3b2a",
+      "status": "accepted",
+      "create_at": "2026-05-15 11:05:33.910283+00"
+    },
+    {
+      "friend_ID": "006",
+      "request_from_ID": "99a1b2c3-d4e5-4f6a-7b8c-9d0e1f2a3b4c",
+      "address_to_ID": "aa11bb22-cc33-4dd4-ee55-ff66aa77bb88",
+      "status": "accepted",
+      "create_at": "2026-05-16 16:40:02.551928+00"
+    },
+    {
+      "friend_ID": "007",
+      "request_from_ID": "55667788-99aa-4bb4-cc55-dd66ee77ff88",
+      "address_to_ID": "11223344-5566-4777-8899-aabbccddeeff",
+      "status": "pending",
+      "create_at": "2026-05-17 08:15:44.204857+00"
+    },
+    {
+      "friend_ID": "008",
+      "request_from_ID": "abcd1234-ef56-4789-abcd-1234ef567890",
+      "address_to_ID": "0987fedc-ba65-4321-0987-fedcba654321",
+      "status": "reject",
+      "create_at": "2026-05-18 20:55:11.739201+00"
+    },
+    {
+      "friend_ID": "009",
+      "request_from_ID": "2aa43d59-7a1e-4842-b40b-2be7416adb19",
+      "address_to_ID": "09d9b4e9-4199-44fc-97b0-dc3db51038c4",
+      "status": "pending",
+      "create_at": "2026-05-19 13:10:05.182934+00"
+    },
+    {
+      "friend_ID": "010",
+      "request_from_ID": "3b4c5d6e-7f8a-491b-2c3d-4e5f6a7b8c9d",
+      "address_to_ID": "d9c8b7a6-f5e4-43d2-1b0a-9f8e7d6c5b4a",
+      "status": "accepted",
+      "create_at": "2026-05-20 09:01:55.602814+00"
+    }
+  ]
+}
