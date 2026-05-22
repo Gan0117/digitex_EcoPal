@@ -396,17 +396,39 @@ Widget _buildHeaderCard() {
               ),
             ),
             const SizedBox(height: 4),
-            Text(
-              _uid.length > 4
-                  ? '#ECO-${_uid.substring(0, 4).toUpperCase()}'
-                  : '#ECO-0000',
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 1.0,
-                color: Color(0xFF707973),
+            GestureDetector(
+            onTap: () {
+              Clipboard.setData(ClipboardData(text: _uid));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('UID copied!')),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE7E9E5),
+                borderRadius: BorderRadius.circular(20),
               ),
-            ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _uid.length > 4
+                        ? '#ECO-${_uid.substring(0, 4).toUpperCase()}'
+                        : '#ECO-0000',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1.0,
+                      color: Color(0xFF707973),
+                    ),
+                  ),
+            const SizedBox(width: 6),
+            const Icon(Icons.copy, size: 12, color: Color(0xFF707973)),
+      ],
+    ),
+  ),
+),
           ],
         ),
       ),
