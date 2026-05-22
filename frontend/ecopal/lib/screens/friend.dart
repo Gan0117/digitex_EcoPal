@@ -1162,7 +1162,7 @@ void _showFriendProfileDialog(FriendEntry friend) {
           child: Row(
             children: [
               Expanded(
-                child: TextField(
+                child: TextField( 
                   controller: _searchCtrl,
                   style: const TextStyle(
                       fontSize: 20,
@@ -1460,6 +1460,7 @@ void _showFriendProfileDialog(FriendEntry friend) {
             if (_scanned) return;
             final barcode = capture.barcodes.first;
             final value = barcode.rawValue;
+            print('Scanned QR Code: $value');
             if (value != null) {
               _scanned = true;
               try {
