@@ -355,10 +355,6 @@ class _FriendsPageState extends State<FriendsPage>
               ),
             ],
           ),
-          IconButton(
-            icon: const Icon(Icons.notifications_none_rounded, color: _primary),
-            onPressed: () {},
-          ),
         ],
       ),
     );
