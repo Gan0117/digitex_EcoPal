@@ -1,6 +1,7 @@
 import math
 import os
 import json
+import time
 from datetime import datetime, timedelta, timezone
 from google import genai
 from google.genai import types
@@ -9,6 +10,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
+from typing import Literal
 from supabase import create_client, Client
 from dotenv import load_dotenv
 
@@ -77,6 +79,12 @@ class PocketRequest(BaseModel):
 class PocketReleaseRequest(BaseModel):
     amount: float
 
+class AddFriendRequest(BaseModel):
+    friend_id: str          
+
+class UpdateFriendStatusRequest(BaseModel):
+    friend_id: str          
+    status: Literal["accepted", "rejected"]
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     token = credentials.credentials
@@ -549,3 +557,161 @@ async def get_behavior_analysis(user = Depends(get_current_user)):
         return {"message": response.text.strip()}
     except Exception as e:
         return {"message": "Mochi is still calculating your habits. Check back shortly!"}
+    
+    # ── LEADERBOARD CACHE ──────────────────────────────────────────────
+_leaderboard_cache: dict = {"data": None, "expires_at": 0}
+LEADERBOARD_CACHE_TTL = 300  
+
+@app.get("/community/leaderboard")
+async def get_leaderboard(user=Depends(get_current_user)):
+    now = time.time()
+    if _leaderboard_cache["data"] and now < _leaderboard_cache["expires_at"]:
+        return _leaderboard_cache["data"]
+
+    res = supabase.table("pets") \
+        .select("name, species, level, user_id, profiles(username)") \
+        .order("level", desc=True) \
+        .limit(10) \
+        .execute()
+
+    leaderboard = []
+    for rank, entry in enumerate(res.data, start=1):
+        leaderboard.append({
+            "rank":     rank,
+            "user_id":  entry["user_id"],
+            "pet_name": entry["name"],
+            "species":  entry["species"],
+            "level":    entry["level"],
+            "username": entry["profiles"]["username"] if entry.get("profiles") else "EcoPalUser",
+        })
+
+    _leaderboard_cache["data"]       = leaderboard
+    _leaderboard_cache["expires_at"] = now + LEADERBOARD_CACHE_TTL
+    return leaderboard
+
+# ── FRIENDS SYSTEM ─────────────────────────────────────────────────
+@app.get("/friends")
+async def get_friends(user=Depends(get_current_user)):
+    user_id = user.user.id
+    
+    #Added 'sender:' and 'receiver:' aliases to the select string
+    res = supabase.table("friendships") \
+        .select(
+            "id, request_from_id, address_to_id, status, created_at, "
+            "sender:profiles!friendships_request_from_id_fkey(username), "
+            "receiver:profiles!friendships_address_to_id_fkey(username)"
+        ) \
+        .or_(f"request_from_id.eq.{user_id},address_to_id.eq.{user_id}") \
+        .neq("status", "rejected") \
+        .execute()
+
+    friend_list, requests_in, requests_out = [], [], []
+
+    for row in res.data:
+        is_sender = row["request_from_id"] == user_id
+        other_id  = row["address_to_id"] if is_sender else row["request_from_id"]
+
+        #Tell Python to look for the new aliases we created
+        if is_sender:
+            username = (row.get("receiver") or {}).get("username", "EcoPalUser")
+        else:
+            username = (row.get("sender") or {}).get("username", "EcoPalUser")
+
+        pet_res = supabase.table("pets").select("name, species, level, happiness_level").eq("user_id", other_id).execute()
+        pet = pet_res.data[0] if pet_res.data else {}
+
+        entry = {
+            "friendship_id":   row["id"],
+            "user_id":         other_id,
+            "username":        username,
+            "pet_name":        pet.get("name", "Unknown"),
+            "species":         pet.get("species", "orange"),
+            "level":           pet.get("level", 1),
+            "happiness_level": pet.get("happiness_level", 50),
+            "status":          row["status"],
+            "created_at":      row["created_at"],
+        }
+
+        if row["status"] == "accepted":
+            friend_list.append(entry)
+        elif row["status"] == "pending":
+            if is_sender:
+                requests_out.append(entry)
+            else:
+                requests_in.append(entry)
+
+    return {"friend_list": friend_list, "requests_in": requests_in, "requests_out": requests_out}
+
+@app.post("/friends/add")
+async def add_friend(req: AddFriendRequest, user=Depends(get_current_user)):
+    user_id, friend_id = user.user.id, req.friend_id.strip()
+    if user_id == friend_id:
+        raise HTTPException(status_code=400, detail="You can't add yourself.")
+
+    target = supabase.table("profiles").select("id").eq("id", friend_id).execute()
+    if not target.data:
+        raise HTTPException(status_code=404, detail="User not found.")
+
+    existing = supabase.table("friendships").select("id, status").or_(
+        f"and(request_from_id.eq.{user_id},address_to_id.eq.{friend_id}),"
+        f"and(request_from_id.eq.{friend_id},address_to_id.eq.{user_id})"
+    ).execute()
+
+    if existing.data:
+        current_status = existing.data[0]["status"]
+        if current_status == "accepted":
+            raise HTTPException(status_code=409, detail="Already friends.")
+        if current_status == "pending":
+            raise HTTPException(status_code=409, detail="Friend request already sent.")
+        
+        supabase.table("friendships").delete().eq("id", existing.data[0]["id"]).execute()
+
+    supabase.table("friendships").insert({
+        "request_from_id": user_id, "address_to_id": friend_id, "status": "pending"
+    }).execute()
+    return {"message": "Friend request sent!"}
+
+@app.patch("/friends/update")
+async def update_friend_status(req: UpdateFriendStatusRequest, user=Depends(get_current_user)):
+    user_id, friend_id = user.user.id, req.friend_id
+    res = supabase.table("friendships").select("id, status") \
+        .eq("request_from_id", friend_id).eq("address_to_id", user_id).eq("status", "pending").execute()
+
+    if not res.data:
+        raise HTTPException(status_code=404, detail="No pending request found.")
+
+    supabase.table("friendships").update({"status": req.status}).eq("id", res.data[0]["id"]).execute()
+    return {"message": f"Friend request {req.status}."}
+
+@app.delete("/friends/{friend_id}")
+async def remove_friend(friend_id: str, user=Depends(get_current_user)):
+    user_id = user.user.id
+    supabase.table("friendships").delete().or_(
+        f"and(request_from_id.eq.{user_id},address_to_id.eq.{friend_id}),"
+        f"and(request_from_id.eq.{friend_id},address_to_id.eq.{user_id})"
+    ).execute()
+    return {"message": "Removed."}
+
+@app.get("/users/search/{target_uid}")
+async def search_user(target_uid: str, user=Depends(get_current_user)):
+    # 1. Prevent searching for yourself
+    if target_uid == user.user.id:
+        raise HTTPException(status_code=400, detail="Cannot search yourself")
+
+    # 2. Check if the user exists in profiles
+    profile_res = supabase.table("profiles").select("id, username").eq("id", target_uid).execute()
+    if not profile_res.data:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    # 3. Get their pet data for the UI Card
+    pet_res = supabase.table("pets").select("name, species, level").eq("user_id", target_uid).execute()
+    pet = pet_res.data[0] if pet_res.data else {}
+
+    # 4. Return the exact JSON shape Flutter expects
+    return {
+        "uid": profile_res.data[0]["id"],
+        "username": profile_res.data[0]["username"],
+        "pet_name": pet.get("name", "Unknown"),
+        "species": pet.get("species", "tabby"),
+        "level": pet.get("level", 1)
+    }

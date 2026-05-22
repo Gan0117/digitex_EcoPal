@@ -174,8 +174,9 @@ class _FriendsPageState extends State<FriendsPage>
     try {
       final profile = await ApiService.getProfile();
       final pet = await ApiService.getPetStatus();
-      final friendsRaw = await ApiService.getFriends();
-      final requestsRaw = await ApiService.getFriendRequests();
+      
+      // 🔥 1. We only need ONE API call now! The backend returns everything in a Map.
+      final friendsData = await ApiService.getFriends(); 
 
       if (!mounted) return;
 
@@ -187,10 +188,15 @@ class _FriendsPageState extends State<FriendsPage>
         _petName = pet['name'] ?? 'Companion';
         _petGifPath = _buildGif(_species, _petLevel);
 
-        _friends = (friendsRaw as List)
+        // 🔥 2. Extract the specific lists from the backend's JSON dictionary
+        final List rawFriendsList = friendsData['friend_list'] ?? [];
+        final List rawRequestsIn = friendsData['requests_in'] ?? [];
+
+        _friends = rawFriendsList
             .map((e) => FriendEntry.fromJson(e as Map<String, dynamic>))
             .toList();
-        _requests = (requestsRaw as List)
+            
+        _requests = rawRequestsIn
             .map((e) => FriendRequest.fromJson(e as Map<String, dynamic>))
             .toList();
 
