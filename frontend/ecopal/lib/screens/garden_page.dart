@@ -67,6 +67,7 @@ class _GardenPageState extends State<GardenPage>
     with SingleTickerProviderStateMixin {
   List<MoneyPocket> _pockets = [];
   bool _isLoading = true;
+  bool _deleteMode = false;
   String? _error;
   double _safeToSpend = 0.0;
 
@@ -1855,24 +1856,25 @@ Widget _buildIconGrid() {
             ),
           ),
           const Spacer(),
-          GestureDetector(
-            onTap: _pockets.length >= 5
-                ? _showMaxPocketsMessage
-                : _showCreatePocketDialog,
-            child: Row(
-              children: [
-                Text(
-                  'see all',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.grey.shade500,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                Icon(Icons.chevron_right,
-                    size: 18, color: Colors.grey.shade400),
-              ],
-            ),
+          Row(
+            children: [
+              _SectionButton(
+                icon: Icons.add,
+                color: const Color(0xFF0F5238),
+                description: 'Add Plant',
+                onTap: _pockets.length >= 5
+                    ? _showMaxPocketsMessage
+                    : _showCreatePocketDialog,
+              ),
+              const SizedBox(width: 8),
+              _SectionButton(
+                icon: Icons.delete_outline,
+                color: const Color(0xFF0F5238),
+                description: 'Delete Plant',
+                onTap: () => setState(() => _deleteMode = !_deleteMode),
+                isActive: _deleteMode,
+              ),
+            ],
           ),
         ],
       ),
@@ -1880,7 +1882,7 @@ Widget _buildIconGrid() {
   }
 
   /// Individual money-pocket card styled like the book recommendation cards.
-  Widget _buildPocketCard(int index) {
+ Widget _buildPocketCard(int index) {
   final pocket = _pockets[index];
   final weather = _currentWeather;
   final progress = pocket.targetAmount > 0
@@ -1889,149 +1891,163 @@ Widget _buildIconGrid() {
   final isComplete = progress >= 1.0;
 
   return GestureDetector(
-    onTap: () => _showPocketDetails(pocket, index),
-    child: Container(
-      margin: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 3))
-        ],
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          // Plant image + weather gif overlay
-          SizedBox(
-            width: 72,
-            height: 72,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.asset(
-                    _treeImage(index, pocket.growthStage),
-                    width: 72,
-                    height: 72,
-                    fit: BoxFit.contain,
-                  ),
-                ),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Opacity(
-                    opacity: 0.40,
-                    child: Image.asset(
-                      _weatherGif(weather),
-                      width: 72,
-                      height: 72,
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+    onTap: () {
+      if (_deleteMode) {
+        _showReleaseConfirm(index, isFromReleaseButton: false);
+      } else {
+        _showPocketDetails(pocket, index);
+      }
+    },
+    child: Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          margin: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3))
+            ],
           ),
-
-          const SizedBox(width: 14),
-
-          // Content
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  pocket.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.black87),
-                ),
-                const SizedBox(height: 4),
-
-                // Current (left) · Target (right)
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              SizedBox(
+                width: 72,
+                height: 72,
+                child: Stack(
+                  alignment: Alignment.center,
                   children: [
-                    Text(
-                      'RM${pocket.currentBalance.toStringAsFixed(2)}',
-                      style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF444444)),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.asset(
+                        _treeImage(index, pocket.growthStage),
+                        width: 72,
+                        height: 72,
+                        fit: BoxFit.contain,
+                      ),
                     ),
-                    Text(
-                      'RM${pocket.targetAmount.toStringAsFixed(2)}',
-                      style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF444444)),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Opacity(
+                        opacity: 0.40,
+                        child: Image.asset(
+                          _weatherGif(weather),
+                          width: 72,
+                          height: 72,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
-
-                // Progress bar
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
-                  child: LinearProgressIndicator(
-                    value: progress,
-                    minHeight: 8,
-                    backgroundColor: Colors.grey.shade200,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      isComplete
-                          ? const Color(0xFF0F5238)
-                          : const Color(0xFF4CAF50),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      pocket.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.black87),
                     ),
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'RM${pocket.currentBalance.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF444444)),
+                        ),
+                        Text(
+                          'RM${pocket.targetAmount.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF444444)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: LinearProgressIndicator(
+                        value: progress,
+                        minHeight: 8,
+                        backgroundColor: Colors.grey.shade200,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          isComplete
+                              ? const Color(0xFF0F5238)
+                              : const Color(0xFF4CAF50),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      isComplete
+                          ? 'Done!'
+                          : '${(progress * 100).toStringAsFixed(0)}%',
+                      style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: isComplete
+                              ? const Color(0xFF0F5238)
+                              : const Color(0xFF4CAF50)),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              if (!_deleteMode)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 9),
+                  decoration: BoxDecoration(
+                    color: isComplete
+                        ? const Color(0xFF0F5238)
+                        : const Color(0xFF4DB6AC),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    isComplete ? 'Release' : 'Edit',
+                    style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white),
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  isComplete
-                      ? 'Done!'
-                      : '${(progress * 100).toStringAsFixed(0)}%',
-                  style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: isComplete
-                      ? const Color(0xFF0F5238)
-                      : const Color(0xFF4CAF50)),
-                ),
-              ],
-            ),
+            ],
           ),
-
-          const SizedBox(width: 10),
-
-          // Edit / Release button
-          GestureDetector(
-            onTap: () => _showPocketDetails(pocket, index),
+        ),
+        if (_deleteMode)
+          Positioned(
+            top: -4,
+            left: 16,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+              width: 24,
+              height: 24,
               decoration: BoxDecoration(
-                color: isComplete
-                  ? const Color(0xFF0F5238)
-                  : const Color(0xFF4DB6AC),
-                borderRadius: BorderRadius.circular(20),
+                color: Colors.redAccent,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
               ),
-              child: Text(
-                isComplete ? 'Release' : 'Edit',
-                style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white),
-              ),
+              child: const Icon(Icons.close, color: Colors.white, size: 14),
             ),
           ),
-        ],
-      ),
+      ],
     ),
   );
 }
@@ -2164,6 +2180,52 @@ Widget _buildIconGrid() {
                       ],
                     ),
                   ),
+      ),
+    );
+  }
+}
+
+class _SectionButton extends StatefulWidget {
+  final IconData icon;
+  final Color color;
+  final String description;
+  final VoidCallback onTap;
+  final bool isActive;
+
+  const _SectionButton({
+    required this.icon,
+    required this.color,
+    required this.description,
+    required this.onTap,
+    this.isActive = false,
+  });
+
+  @override
+  State<_SectionButton> createState() => _SectionButtonState();
+}
+
+class _SectionButtonState extends State<_SectionButton> {
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: widget.description,
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: widget.isActive
+                ? widget.color
+                : widget.color.withOpacity(0.12),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            widget.icon,
+            size: 18,
+            color: widget.isActive ? Colors.white : widget.color,
+          ),
+        ),
       ),
     );
   }
