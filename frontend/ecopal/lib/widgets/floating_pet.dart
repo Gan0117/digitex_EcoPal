@@ -224,10 +224,12 @@ class FloatingPetState extends State<FloatingPet> with SingleTickerProviderState
       ),
     );
 
-    return SizedBox(
-      width: screenSize.width,
-      height: screenSize.height,
-      child: Stack(
+   if (!showFloatingPet.value) return const SizedBox.shrink();
+
+      return SizedBox(
+        width: screenSize.width,
+        height: screenSize.height,
+        child: Stack(
         clipBehavior: Clip.none,
         children: [
           Positioned(

@@ -187,28 +187,39 @@ class _AiInsightPageState extends State<AiInsightPage> {
 
     return Scaffold(
       extendBody: true,
+      backgroundColor: const Color(0xFFF8FAF6),
       bottomNavigationBar: const EcoPalBottomBar(currentIndex: 3), 
       body: _isLoading
         ? Center(child: CircularProgressIndicator(color: primaryColor))
         : Stack(
             children: [
-              Container(
-                width: double.infinity,
-                height: double.infinity,
-                decoration: const BoxDecoration(
-                  image: DecorationImage(
-                    image: AssetImage('widgets/ai_insight_background.gif'),
-                    fit: BoxFit.cover,
-                  ),
-                ),
-              ),
-
               SafeArea(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.only(left: 24, right: 24, top: 24, bottom: 100),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      Row(
+                        children: [
+                          Image.asset(
+                            'widgets/badges/gold_badge.png',
+                            width: 32,
+                            height: 32,
+                            fit: BoxFit.contain,
+                          ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Ecopal',
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.black87,
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
                       const Text('AI Insights', style: TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: Colors.black87)),
                       const SizedBox(height: 4),
                       Text('Your personal financial ecosystem analysis.', style: TextStyle(fontSize: 16, color: Colors.grey.shade800)),
@@ -564,22 +575,21 @@ class _AiInsightPageState extends State<AiInsightPage> {
     );
   }
 
-  Widget _buildGlassCard({required Widget child, EdgeInsetsGeometry padding = const EdgeInsets.all(24)}) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-        child: Container(
-          padding: padding,
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.65), 
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.white.withOpacity(0.6), width: 1.5),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
-          ),
-          child: child,
+ Widget _buildGlassCard({required Widget child, EdgeInsetsGeometry padding = const EdgeInsets.all(24)}) {
+  return Container(
+    padding: padding,
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.05),
+          blurRadius: 10,
+          offset: const Offset(0, 3),
         ),
-      ),
-    );
-  }
+      ],
+    ),
+    child: child,
+  );
+}
 }

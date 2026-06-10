@@ -330,139 +330,145 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  @override
+ @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: surfaceSoil,
       extendBody: true,
+      backgroundColor: const Color(0xFFF8FAF6),
       bottomNavigationBar: const EcoPalBottomBar(currentIndex: 4),
 
       body: _isLoading
           ? Center(child: CircularProgressIndicator(color: primaryColor))
-          : Stack(
-              children: [
-                Container(
-                  width: double.infinity,
-                  height: double.infinity,
-                  decoration: const BoxDecoration(
-                    image: DecorationImage(
-                      image: AssetImage('widgets/profile_background.gif'),
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                ),
-                
-                SafeArea(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.only(left: 24, right: 24, top: 24, bottom: 40), 
-                    child: Column(
+          : SafeArea(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.only(left: 24, right: 24, top: 24, bottom: 40), 
+                child: Column(
+                  children: [
+                    Row(
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(color: Colors.white.withOpacity(0.85), borderRadius: BorderRadius.circular(16), border: Border.all(color: primaryColor.withOpacity(0.1)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))]),
-                          child: Row(
-                            children: [
-                              Container(width: 70, height: 70, decoration: BoxDecoration(color: surfaceContainer, shape: BoxShape.circle, border: Border.all(color: primaryColor, width: 2)), child: Image.asset(_currentGifPath, filterQuality: FilterQuality.none, fit: BoxFit.contain)),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Text(_userName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                                        const SizedBox(width: 8),
-                                        GestureDetector(
-                                          onTap: _showEditNameDialog,
-                                          child: Icon(Icons.edit, size: 16, color: Colors.grey.shade600),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Row(
-                                      children: [
-                                        _buildBadge('Level $_petLevel', primaryColor),
-                                        const SizedBox(width: 8),
-                                        _buildBadge('$_streak Day Streak', const Color(0xFFF59E0B)),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Image.asset(
-                                _getBadgeAsset(_streak),
-                                width: 50,
-                                height: 50,
-                                fit: BoxFit.contain,
-                              ),
-                            ],
+                        Image.asset(
+                          'widgets/badges/gold_badge.png',
+                          width: 32,
+                          height: 32,
+                          fit: BoxFit.contain,
+                        ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Ecopal',
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.black87,
+                            letterSpacing: -0.5,
                           ),
-                        ),
-                        const SizedBox(height: 16),
-
-                        Container(
-                          padding: const EdgeInsets.all(24),
-                          decoration: BoxDecoration(color: Colors.white.withOpacity(0.85), borderRadius: BorderRadius.circular(16), border: Border.all(color: primaryColor.withOpacity(0.1)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10)]),
-                          child: Row(
-                            children: [
-                              Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: secondaryContainer.withOpacity(0.5), shape: BoxShape.circle), child: Icon(Icons.savings_outlined, color: primaryColor, size: 28)),
-                              const SizedBox(width: 16),
-                              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('TOTAL HARVEST', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2)), Text('\$${_totalHarvest.toStringAsFixed(2)}', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: primaryColor))])
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 32),
-
-                        FutureFriendsCard(primaryColor: primaryColor),
-                        const SizedBox(height: 16),
-
-                        Container(
-                          decoration: BoxDecoration(color: const Color(0xFFF1F3E9).withOpacity(0.95), borderRadius: BorderRadius.circular(16), border: Border.all(color: primaryColor.withOpacity(0.2))),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(16),
-                            onTap: () {
-                              Navigator.push(context, MaterialPageRoute(builder: (context) => const PetSelectionPage())).then((_) {
-                                showFloatingPet.value = true;
-                                setState(() => _isLoading = true);
-                                _loadData();
-                              });
-                            },
-                            child: Padding(
-                              padding: const EdgeInsets.all(20),
-                              child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Manage Companion', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)), Icon(Icons.arrow_forward_ios, size: 18, color: Colors.grey.shade700)]),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 32),
-
-                        OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            backgroundColor: primaryColor, 
-                            foregroundColor: Colors.white, 
-                            minimumSize: const Size(double.infinity, 56), 
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100))
-                          ),
-                          icon: const Icon(Icons.ios_share), 
-                          label: const Text('Share Progress', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)), 
-                          onPressed: _showSharePreviewDialog,
-                        ),
-                        const SizedBox(height: 12),
-
-                        OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(backgroundColor: Colors.white.withOpacity(0.9), foregroundColor: Colors.grey.shade800, side: BorderSide(color: Colors.grey.shade300), minimumSize: const Size(double.infinity, 56), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100))),
-                          icon: const Icon(Icons.help_outline), label: const Text('Support & Feedback', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)), onPressed: _launchSupport,
-                        ),
-                        const SizedBox(height: 12),
-                        OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(backgroundColor: Colors.red.shade50.withOpacity(0.8), foregroundColor: Colors.red.shade600, side: BorderSide(color: Colors.red.shade100), minimumSize: const Size(double.infinity, 56), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100))),
-                          icon: const Icon(Icons.logout), label: const Text('Log Out', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)), onPressed: _signOut,
                         ),
                       ],
                     ),
-                  ),
+                    const SizedBox(height: 20),
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 3))]),
+                      child: Row(
+                        children: [
+                          Container(width: 70, height: 70, decoration: BoxDecoration(color: surfaceContainer, shape: BoxShape.circle, border: Border.all(color: primaryColor, width: 2)), child: Image.asset(_currentGifPath, filterQuality: FilterQuality.none, fit: BoxFit.contain)),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text(_userName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                                    const SizedBox(width: 8),
+                                    GestureDetector(
+                                      onTap: _showEditNameDialog,
+                                      child: Icon(Icons.edit, size: 16, color: Colors.grey.shade600),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    _buildBadge('Level $_petLevel', primaryColor),
+                                    const SizedBox(width: 8),
+                                    _buildBadge('$_streak Day Streak', const Color(0xFFF59E0B)),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Image.asset(
+                            _getBadgeAsset(_streak),
+                            width: 50,
+                            height: 50,
+                            fit: BoxFit.contain,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 3))]),
+                      child: Row(
+                        children: [
+                          Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: secondaryContainer.withOpacity(0.5), shape: BoxShape.circle), child: Icon(Icons.savings_outlined, color: primaryColor, size: 28)),
+                          const SizedBox(width: 16),
+                          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('TOTAL HARVEST', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2)), Text('\$${_totalHarvest.toStringAsFixed(2)}', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: primaryColor))])
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+
+                    FutureFriendsCard(primaryColor: primaryColor),
+                    const SizedBox(height: 16),
+
+                    Container(
+                      decoration: BoxDecoration(color: const Color(0xFFF1F3E9).withOpacity(0.95), borderRadius: BorderRadius.circular(16), border: Border.all(color: primaryColor.withOpacity(0.2))),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(16),
+                        onTap: () {
+                          Navigator.push(context, MaterialPageRoute(builder: (context) => const PetSelectionPage())).then((_) {
+                            showFloatingPet.value = true;
+                            setState(() => _isLoading = true);
+                            _loadData();
+                          });
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Manage Companion', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)), Icon(Icons.arrow_forward_ios, size: 18, color: Colors.grey.shade700)]),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: primaryColor, 
+                        foregroundColor: Colors.white, 
+                        minimumSize: const Size(double.infinity, 56), 
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100))
+                      ),
+                      icon: const Icon(Icons.ios_share), 
+                      label: const Text('Share Progress', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)), 
+                      onPressed: _showSharePreviewDialog,
+                    ),
+                    const SizedBox(height: 12),
+
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(backgroundColor: Colors.white.withOpacity(0.9), foregroundColor: Colors.grey.shade800, side: BorderSide(color: Colors.grey.shade300), minimumSize: const Size(double.infinity, 56), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100))),
+                      icon: const Icon(Icons.help_outline), label: const Text('Support & Feedback', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)), onPressed: _launchSupport,
+                    ),
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(backgroundColor: Colors.red.shade50.withOpacity(0.8), foregroundColor: Colors.red.shade600, side: BorderSide(color: Colors.red.shade100), minimumSize: const Size(double.infinity, 56), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100))),
+                      icon: const Icon(Icons.logout), label: const Text('Log Out', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)), onPressed: _signOut,
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
     );
   }

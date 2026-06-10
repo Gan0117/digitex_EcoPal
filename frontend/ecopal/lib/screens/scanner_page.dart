@@ -643,18 +643,12 @@ class _ScannerPageState extends State<ScannerPage> with SingleTickerProviderStat
 
     return Scaffold(
       extendBody: true,
+      backgroundColor: const Color(0xFFF8FAF6),
       bottomNavigationBar: const EcoPalBottomBar(currentIndex: 1), 
       body: _isLoading
           ? Center(child: CircularProgressIndicator(color: primaryColor))
           : Stack(
               children: [
-                Container(
-                  width: double.infinity,
-                  height: double.infinity,
-                  decoration: const BoxDecoration(
-                    image: DecorationImage(image: AssetImage('widgets/scanner_background.gif'), fit: BoxFit.cover),
-                  ),
-                ),
                 
                 SafeArea(
                   child: SingleChildScrollView(
@@ -663,6 +657,29 @@ class _ScannerPageState extends State<ScannerPage> with SingleTickerProviderStat
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         
+                        Row(
+                        children: [
+                          Image.asset(
+                            'widgets/badges/gold_badge.png',
+                            width: 32,
+                            height: 32,
+                            fit: BoxFit.contain,
+                          ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Ecopal',
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.black87,
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+
+
                         // 1. SCAN RECEIPT SECTION 
                         _buildGlassCard(
                           child: Column(
@@ -701,94 +718,7 @@ class _ScannerPageState extends State<ScannerPage> with SingleTickerProviderStat
                         ),
                         const SizedBox(height: 24),
 
-                        // 2. MANUAL ENTRY SECTION
-                        _buildGlassCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              GestureDetector(
-                                onTap: () => setState(() => _isManualExpanded = !_isManualExpanded),
-                                child: Container(
-                                  color: Colors.transparent, 
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.edit_note, color: secondaryColor),
-                                      const SizedBox(width: 8),
-                                      const Text('Manual Entry', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)),
-                                      const Spacer(),
-                                      Icon(_isManualExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down, color: Colors.grey.shade600),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              
-                              AnimatedSize(
-                                duration: const Duration(milliseconds: 300),
-                                curve: Curves.easeInOut,
-                                child: _isManualExpanded 
-                                  ? Padding(
-                                      padding: const EdgeInsets.only(top: 20),
-                                      child: Column(
-                                        children: [
-                                          Row(
-                                            children: [
-                                              Expanded(
-                                                child: _buildInputLabel('Spend Type', DropdownButtonFormField<String>(
-                                                  value: _selectedCategory,
-                                                  decoration: _inputDecoration(),
-                                                  items: _categories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-                                                  onChanged: (val) => setState(() => _selectedCategory = val!),
-                                                )),
-                                              ),
-                                              const SizedBox(width: 12),
-                                              Expanded(
-                                                child: _buildInputLabel('Amount (\$)', TextField(
-                                                  controller: _amountController,
-                                                  keyboardType: TextInputType.number,
-                                                  decoration: _inputDecoration(hint: '0.00'),
-                                                )),
-                                              ),
-                                            ],
-                                          ),
-                                          
-                                          if (_selectedCategory == 'Other') ...[
-                                            const SizedBox(height: 16),
-                                            _buildInputLabel('Custom Spend Type', TextField(
-                                              controller: _customCategoryController,
-                                              decoration: _inputDecoration(hint: 'e.g., Pharmacy, Gifts'),
-                                            )),
-                                          ],
-
-                                          const SizedBox(height: 16),
-                                          _buildInputLabel('Description (Optional)', TextField(
-                                            controller: _descriptionController,
-                                            decoration: _inputDecoration(hint: 'e.g., Lunch with friends'),
-                                          )),
-
-                                          const SizedBox(height: 16),
-                                          SizedBox(
-                                            width: double.infinity,
-                                            height: 48,
-                                            child: ElevatedButton(
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: primaryColor,
-                                                foregroundColor: Colors.white,
-                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                              ),
-                                              onPressed: _isLoading ? null : _verifyManualRecord, 
-                                              child: const Text('Record Transaction', style: TextStyle(fontWeight: FontWeight.bold)),
-                                            ),
-                                          )
-                                        ],
-                                      ),
-                                    )
-                                  : const SizedBox.shrink(),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-
+                      
                         // 3. AI ANALYSIS SECTION
                         _buildGlassCard(
                           child: Column(
@@ -952,23 +882,22 @@ class _ScannerPageState extends State<ScannerPage> with SingleTickerProviderStat
 
   // --- UI Helpers ---
   Widget _buildGlassCard({required Widget child, EdgeInsetsGeometry padding = const EdgeInsets.all(20)}) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-        child: Container(
-          padding: padding,
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.65), 
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.white.withOpacity(0.6), width: 1.5),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
-          ),
-          child: child,
+  return Container(
+    padding: padding,
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.05),
+          blurRadius: 10,
+          offset: const Offset(0, 3),
         ),
-      ),
-    );
-  }
+      ],
+    ),
+    child: child,
+  );
+}
 
   Widget _buildInputLabel(String label, Widget input) {
     return Column(
