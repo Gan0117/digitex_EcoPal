@@ -1,0 +1,122 @@
+[
+  {
+    "id": 1,
+    "question": "What is an 'Emergency Fund' primarily used for?",
+    "options": [
+      "Buying a new smartphone during a flash sale",
+      "Investing in high-risk crypto tokens for quick gains",
+      "Covering unexpected expenses like medical bills or repairs",
+      "Funding a graduation trip to Europe with friends"
+    ],
+    "correct_index": 2,
+    "explanation": "An emergency fund acts as a safety net to cover unexpected life events without forcing you into high-interest debt."
+  },
+  {
+    "id": 2,
+    "question": "If you leave RM1,000 in a savings account with a 3% annual interest rate, how much interest do you earn in the first year?",
+    "options": [
+      "RM 3.00",
+      "RM 30.00",
+      "RM 300.00",
+      "RM 0.30"
+    ],
+    "correct_index": 1,
+    "explanation": "Simple interest is calculated as Principal × Rate. Thus, RM1,000 × 0.03 = RM30.00."
+  },
+  {
+    "id": 3,
+    "question": "Which of the following describes the psychological concept of 'Loss Aversion'?",
+    "options": [
+      "The tendency to prefer avoiding losses over acquiring equivalent gains",
+      "The urge to spend money immediately upon receiving a monthly allowance",
+      "Investing only in safe assets like fixed deposits",
+      "Forgetting to log daily expenses due to stress"
+    ],
+    "correct_index": 0,
+    "explanation": "Loss aversion means the pain of losing RM50 is psychologically twice as powerful as the pleasure of gaining RM50."
+  },
+  {
+    "id": 4,
+    "question": "What is the primary difference between a 'Want' and a 'Need'?",
+    "options": [
+      "Needs are always expensive, while wants are cheap",
+      "Needs are essential for survival and health, while wants are non-essential desires",
+      "Wants are buying items online, while needs are buying items in physical stores",
+      "There is no difference; they mean the same thing in budgeting"
+    ],
+    "correct_index": 1,
+    "explanation": "Needs are baseline survival requirements (rent, basic food, utilities). Wants are items that improve lifestyle comfort but are not essential (cafe coffee, concert tickets)."
+  },
+  {
+    "id": 5,
+    "question": "What does the financial rule of thumb 'Pay Yourself First' mean?",
+    "options": [
+      "Buying yourself a luxury reward as soon as your allowance arrives",
+      "Paying off all your credit card bills before anything else",
+      "Routing a portion of income to savings before spending on discretionary items",
+      "Withdrawing all your cash from the ATM immediately"
+    ],
+    "correct_index": 2,
+    "explanation": "Paying yourself first means prioritizing your future financial safety by putting money into savings or investments before spending on lifestyle wants."
+  },
+  {
+    "id": 6,
+    "question": "How does inflation affect your money over time?",
+    "options": [
+      "It increases the absolute purchasing power of your cash",
+      "It reduces the purchasing power, meaning your cash buys fewer goods over time",
+      "It automatically doubles the amount of money in your bank account",
+      "It only affects stock prices, not cash value"
+    ],
+    "correct_index": 1,
+    "explanation": "Inflation increases the general cost of goods and services over time, effectively reducing what a flat amount of cash can buy."
+  },
+  {
+    "id": 7,
+    "question": "What does 'Compound Interest' mean?",
+    "options": [
+      "Interest calculated only on the initial principal amount",
+      "Interest that is paid to multiple bank accounts simultaneously",
+      "Interest earned on both the initial principal and the accumulated interest from previous periods",
+      "A penalty fee charged for missing a loan payment deadline"
+    ],
+    "correct_index": 2,
+    "explanation": "Compound interest is 'interest on interest,' allowing savings balances to grow exponentially faster over time."
+  },
+  {
+    "id": 8,
+    "question": "Which expense is considered a 'Fixed Expense' in a monthly budget?",
+    "options": [
+      "Eating out at a Japanese restaurant with friends",
+      "Monthly room rental or accommodation fees",
+      "Buying new apparel or footwear during a sale",
+      "Purchasing random snacks and milk tea"
+    ],
+    "correct_index": 1,
+    "explanation": "Fixed expenses remain constant in cost and frequency every month, such as rent, insurance, or subscription contracts."
+  },
+  {
+    "id": 9,
+    "question": "What is the primary danger of only making the 'minimum payment' on a credit card bill?",
+    "options": [
+      "The bank will cancel the card immediately",
+      "You will accrue high interest charges on the remaining unpaid balance",
+      "Your credit score increases too rapidly",
+      "You will receive cash back rewards slower"
+    ],
+    "correct_index": 1,
+    "explanation": "Paying only the minimum allows interest to accumulate heavily on the massive remaining debt balance, pulling users into a debt spiral."
+  },
+  {
+    "id": 10,
+    "question": "In personal finance, what does diversifying investments mean?",
+    "options": [
+      "Putting all available money into a single high-performing stock",
+      "Spreading investment capital across various asset classes to minimize risk",
+      "Opening savings accounts at five different physical banks",
+      "Converting all currency into physical gold bars"
+    ],
+    "correct_index": 1,
+    "explanation": "Diversification limits exposure to any single asset failure, protecting your total portfolio if one market or sector experiences a downturn."
+  }
+]

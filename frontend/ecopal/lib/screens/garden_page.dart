@@ -3,11 +3,6 @@ import 'dart:ui';
 import 'dart:math' as math;
 import '../widgets/bottom_nav_bar.dart';
 import '../services/api_service.dart';
-import 'pet_room_page.dart';
-import 'profile_page.dart';
-import 'scanner_page.dart';
-import 'ai_insight_page.dart';
-import 'friend.dart';
 import '../widgets/floating_pet.dart';
 
 class MoneyPocket {
@@ -115,7 +110,7 @@ class _GardenPageState extends State<GardenPage>
       _error = null;
     });
     try {
-      final results = await Future.wait([
+      final results = await Future.wait<dynamic>([
         ApiService.getPockets(),
         ApiService.getSafeToSpendBalance(),
         ApiService.getPetStatus(),
@@ -1751,85 +1746,7 @@ class _GardenPageState extends State<GardenPage>
     );
   }
 
-  /// 4-button icon grid: Pet · Friend · Scanner · Insight
-  String _petGridGif() {
-  final species = (_petSpecies ?? 'tabby').toLowerCase();
-  final folder2 = _petLevel <= 3 ? 'kitten' : 'cat';
-  final prefix = species == 'tabby'
-      ? (_petLevel <= 3 ? 'kit_' : 'cat_')
-      : (_petLevel <= 3 ? 'orkt_' : 'org_');
-  return 'widgets/$species/$folder2/${prefix}idle.gif';
-}
-
-
-Widget _buildIconGrid() {
-  final List<({String? asset, bool isGif, IconData? iconData, String label, VoidCallback onTap})> gridItems = [
-    (
-      isGif: false,
-      asset: 'widgets/dashboard/pet_icon.png',
-      iconData: null,
-      label: 'Pet',
-      onTap: () => Navigator.push(context,
-          MaterialPageRoute(builder: (_) => const PetRoomPage()))
-          .then((_) => _loadData()),
-    ),
-    (
-      isGif: false,
-      asset: 'widgets/dashboard/friend_logo.png',
-      iconData: null,
-      label: 'Friend',
-      onTap: () => Navigator.push(
-          context, MaterialPageRoute(builder: (_) => const FriendsPage())),
-    ),
-    (
-      isGif: false,
-      asset: 'widgets/dashboard/scanner_logo.png',
-      iconData: null,
-      label: 'Scanner',
-      onTap: () => Navigator.push(
-          context, MaterialPageRoute(builder: (_) => const ScannerPage())),
-    ),
-    (
-      isGif: false,
-      asset: 'widgets/dashboard/insight_logo.png',
-      iconData: null,
-      label: 'Insight',
-      onTap: () => Navigator.push(context,
-          MaterialPageRoute(builder: (_) => const AiInsightPage())),
-    ),
-  ];
-
-  return Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 16),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.spaceAround,
-      children: gridItems.map((item) {
-        return GestureDetector(
-          onTap: item.onTap,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Image.asset(
-              item.asset!,
-              width: 56,
-              height: 56,
-              fit: BoxFit.contain,
-            ),
-              const SizedBox(height: 6),
-              Text(
-                item.label,
-                style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF444444)),
-              ),
-            ],
-          ),
-        );
-      }).toList(),
-    ),
-  );
-}
+  
   /// Section header identical in style to "RECOMMEND" / "see all"
   Widget _buildSectionHeader() {
     return Padding(
@@ -2152,11 +2069,7 @@ Widget _buildIconGrid() {
 
                         const SliverToBoxAdapter(child: SizedBox(height: 28)),
 
-                        // ── Icon grid ─────────────────────────────────────
-                        SliverToBoxAdapter(child: _buildIconGrid()),
-
-                        const SliverToBoxAdapter(child: SizedBox(height: 28)),
-
+                       
                         // ── Section header ────────────────────────────────
                         SliverToBoxAdapter(child: _buildSectionHeader()),
 

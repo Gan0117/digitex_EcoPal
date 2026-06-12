@@ -7,6 +7,7 @@ import '../widgets/bottom_nav_bar.dart';
 import '../widgets/floating_pet.dart';
 import 'leaderboard_page.dart';
 import 'dart:ui';
+import 'quiz_page.dart' hide ApiService;
 
 class PetRoomPage extends StatefulWidget {
   const PetRoomPage({super.key});
@@ -215,256 +216,254 @@ class _PetRoomPageState extends State<PetRoomPage> {
             alignment: Alignment.bottomCenter,
           ),
         ),
-        child: _isLoading 
-          ? const Center(child: CircularProgressIndicator(color: Colors.white))
-          : SafeArea(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // ==============================
-                  // 🌟 上半部分：宠物状态、排行榜、喂食面板
-                  // ==============================
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      // ✨ 1. 顶部宠物名片：白底 + 深绿边框
-                      Container(
-                        margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(20),
-                          child: BackdropFilter(
-                            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-                            child: Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.65),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: Colors.white.withOpacity(0.6), width: 1.5),
-                                boxShadow: [
-                                  BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4)),
-                                ],
-                              ),
-                              child: Column(
-                                children: [
-                                  Text(
-                                    '$_name (Lvl $_level $_species)',
-                                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF0F5238)),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Row(
-                                    children: [
-                                      const Icon(Icons.restaurant, color: Colors.orange, size: 20),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: LinearProgressIndicator(
-                                          value: _hunger / 100,
-                                          backgroundColor: Colors.grey.shade200,
-                                          color: Colors.orange,
-                                          minHeight: 10,
-                                          borderRadius: BorderRadius.circular(10),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      Padding(
-                        padding: const EdgeInsets.only(right: 24, top: 8),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            GestureDetector(
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(builder: (_) => const LeaderboardPage()),
-                                );
-                              },
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator(color: Colors.white))
+            : SafeArea(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // ==============================
+                    // 🌟 上半部分：宠物状态、排行榜、喂食面板
+                    // ==============================
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        // ✨ 1. 顶部宠物名片：白底 + 深绿边框
+                        Container(
+                          margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(20),
+                            child: BackdropFilter(
+                              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
                               child: Container(
-                                width: 46,
-                                height: 46,
+                                padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: const Color(0xFFFFD700),
+                                  color: Colors.white.withOpacity(0.65),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(color: Colors.white.withOpacity(0.6), width: 1.5),
                                   boxShadow: [
-                                    BoxShadow(color: Colors.black.withOpacity(0.25), blurRadius: 8, offset: const Offset(0, 3)),
+                                    BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4)),
                                   ],
                                 ),
-                                child: const Icon(Icons.emoji_events, color: Colors.white, size: 24),
-                              ),
-                            ),
-                            
-                            const SizedBox(height: 130), 
-                            
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(20),
-                              child: BackdropFilter(
-                                filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.65),
-                                    borderRadius: BorderRadius.circular(20),
-                                    border: Border.all(color: Colors.white.withOpacity(0.6), width: 1.5),
-                                    boxShadow: [
-                                      BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4)),
-                                    ],
-                                  ),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          const Icon(Icons.stars, color: Colors.amber, size: 14),
-                                          const SizedBox(width: 4),
-                                          Text('$_rewardPoints pts',
-                                              style: const TextStyle(
-                                                  color: Colors.amber,
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 12)),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 4),
-                                      const Text('Drag to Feed (50)',
-                                          style: TextStyle(
-                                              color: Color(0xFF0F5238), 
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 10)),
-                                      const SizedBox(height: 4),
-                                      Opacity(
-                                        opacity: _rewardPoints >= 50 ? 1.0 : 0.5,
-                                        child: _rewardPoints >= 50 
-                                          ? Draggable<String>(
-                                              data: 'fish_food', 
-                                              feedback: Material(
-                                                color: Colors.transparent, 
-                                                child: Image.asset(
-                                                  'widgets/fish.png',
-                                                  width: 55, 
-                                                  height: 55,
-                                                  filterQuality: FilterQuality.none,
-                                                ),
-                                              ),
-                                              childWhenDragging: Opacity(
-                                                opacity: 0.2, 
-                                                child: Image.asset(
-                                                  'widgets/fish.png',
-                                                  width: 42, 
-                                                  height: 42,
-                                                  filterQuality: FilterQuality.none,
-                                                ),
-                                              ),
-                                              child: Image.asset(
-                                                'widgets/fish.png',
-                                                width: 42, 
-                                                height: 42,
-                                                filterQuality: FilterQuality.none,
-                                              ),
-                                            )
-                                          : GestureDetector(
-                                              onTap: _showInsufficientPointsMessage,
-                                              child: Image.asset(
-                                                'widgets/fish.png',
-                                                width: 42, 
-                                                height: 42,
-                                                filterQuality: FilterQuality.none,
-                                              ),
-                                            ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ], 
-                  ),
-
-                  // ==============================
-                  // 🌟 下半部分：猫咪和对话气泡
-                  // ==============================
-                  Expanded( 
-                    child: DragTarget<String>(
-                      onAcceptWithDetails: (details) {
-                        if (details.data == 'fish_food') _handleFeed();
-                      },
-                      builder: (context, candidateData, rejectedData) {
-                        return SizedBox(
-                          width: double.infinity, 
-                          child: Stack(
-                            clipBehavior: Clip.none, 
-                            alignment: Alignment.bottomCenter, 
-                            children: [
-                              GestureDetector(
-                                onTap: _handleTap,
-                                child: Padding(
-                                  padding: const EdgeInsets.only(bottom: 30), 
-                                  child: AnimatedSwitcher(
-                                    duration: const Duration(milliseconds: 300),
-                                    child: Image.asset(
-                                      _currentGifPath,
-                                      key: ValueKey<String>(_currentGifPath),
-                                      width: 190, 
-                                      height: 190, 
-                                      fit: BoxFit.contain,
-                                      filterQuality: FilterQuality.none,
+                                child: Column(
+                                  children: [
+                                    Text(
+                                      '$_name (Lvl $_level $_species)',
+                                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF0F5238)),
                                     ),
-                                  ),
-                                ),
-                              ),
-                              
-                              if (_message != null)
-                                Positioned(
-                                  left: 20,     
-                                  bottom: 220,  
-                                  child: Container(
-                                    padding: const EdgeInsets.all(12),
-                                    constraints: const BoxConstraints(maxWidth: 150), 
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.95),
-                                      borderRadius: const BorderRadius.only(
-                                        topLeft: Radius.circular(16),
-                                        topRight: Radius.circular(16),
-                                        bottomLeft: Radius.circular(16), 
-                                        bottomRight: Radius.circular(0), 
-                                      ),
-                                      border: Border.all(color: const Color(0xFF0F5238).withOpacity(0.2)),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withOpacity(0.1), 
-                                          blurRadius: 8, 
-                                          offset: const Offset(0, 4)
-                                        )
+                                    const SizedBox(height: 12),
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.restaurant, color: Colors.orange, size: 20),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: LinearProgressIndicator(
+                                            value: _hunger / 100,
+                                            backgroundColor: Colors.grey.shade200,
+                                            color: Colors.orange,
+                                            minHeight: 10,
+                                            borderRadius: BorderRadius.circular(10),
+                                          ),
+                                        ),
                                       ],
                                     ),
-                                    child: Text(
-                                      _message!,
-                                      style: const TextStyle(
-                                        color: Colors.black, 
-                                        fontWeight: FontWeight.bold, 
-                                        fontSize: 13
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        // ✨ 2. 测验按钮 (左) + 排行榜与喂食面板 (右)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // ── Quiz button (left) ──
+                              GestureDetector(
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(builder: (_) => const QuizPage()),
+                                  );
+                                },
+                                child: Container(
+                                  width: 46,
+                                  height: 46,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: Colors.white,
+                                    boxShadow: [
+                                      BoxShadow(color: Colors.black.withOpacity(0.25), blurRadius: 8, offset: const Offset(0, 3)),
+                                    ],
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(8),
+                                    child: Image.asset('widgets/dashboard/quiz.png', fit: BoxFit.contain),
+                                  ),
+                                ),
+                              ),
+
+                              // ── Leaderboard + feed panel (right) ──
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  // 排行榜按钮
+                                  GestureDetector(
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(builder: (_) => const LeaderboardPage()),
+                                      );
+                                    },
+                                    child: Container(
+                                      width: 46,
+                                      height: 46,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: const Color(0xFFFFD700),
+                                        boxShadow: [
+                                          BoxShadow(color: Colors.black.withOpacity(0.25), blurRadius: 8, offset: const Offset(0, 3)),
+                                        ],
                                       ),
-                                      textAlign: TextAlign.left,
+                                      child: const Icon(Icons.emoji_events, color: Colors.white, size: 24),
+                                    ),
+                                  ),
+
+                                  const SizedBox(height: 130),
+
+                                  // 喂食面板 (移除了下方错误重复的代码)
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(20),
+                                    child: BackdropFilter(
+                                      filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withOpacity(0.65),
+                                          borderRadius: BorderRadius.circular(20),
+                                          border: Border.all(color: Colors.white.withOpacity(0.6), width: 1.5),
+                                          boxShadow: [
+                                            BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4)),
+                                          ],
+                                        ),
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                const Icon(Icons.stars, color: Colors.amber, size: 14),
+                                                const SizedBox(width: 4),
+                                                Text('$_rewardPoints pts', style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 12)),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 4),
+                                            const Text('Drag to Feed (50)', style: TextStyle(color: Color(0xFF0F5238), fontWeight: FontWeight.bold, fontSize: 10)),
+                                            const SizedBox(height: 4),
+                                            Opacity(
+                                              opacity: _rewardPoints >= 50 ? 1.0 : 0.5,
+                                              child: _rewardPoints >= 50
+                                                  ? Draggable<String>(
+                                                      data: 'fish_food',
+                                                      feedback: Material(
+                                                        color: Colors.transparent,
+                                                        child: Image.asset('widgets/fish.png', width: 55, height: 55, filterQuality: FilterQuality.none),
+                                                      ),
+                                                      childWhenDragging: Opacity(
+                                                        opacity: 0.2,
+                                                        child: Image.asset('widgets/fish.png', width: 42, height: 42, filterQuality: FilterQuality.none),
+                                                      ),
+                                                      child: Image.asset('widgets/fish.png', width: 42, height: 42, filterQuality: FilterQuality.none),
+                                                    )
+                                                  : GestureDetector(
+                                                      onTap: _showInsufficientPointsMessage,
+                                                      child: Image.asset('widgets/fish.png', width: 42, height: 42, filterQuality: FilterQuality.none),
+                                                    ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    // ==============================
+                    // 🌟 下半部分：猫咪和对话气泡
+                    // ==============================
+                    Expanded(
+                      child: DragTarget<String>(
+                        onAcceptWithDetails: (details) {
+                          if (details.data == 'fish_food') _handleFeed();
+                        },
+                        builder: (context, candidateData, rejectedData) {
+                          return SizedBox(
+                            width: double.infinity,
+                            child: Stack(
+                              clipBehavior: Clip.none,
+                              alignment: Alignment.bottomCenter,
+                              children: [
+                                GestureDetector(
+                                  onTap: _handleTap,
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(bottom: 30),
+                                    child: AnimatedSwitcher(
+                                      duration: const Duration(milliseconds: 300),
+                                      child: Image.asset(
+                                        _currentGifPath,
+                                        key: ValueKey<String>(_currentGifPath),
+                                        width: 190,
+                                        height: 190,
+                                        fit: BoxFit.contain,
+                                        filterQuality: FilterQuality.none,
+                                      ),
                                     ),
                                   ),
                                 ),
-                            ],
-                          ),
-                        );
-                      },
+                                if (_message != null)
+                                  Positioned(
+                                    left: 20,
+                                    bottom: 220,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(12),
+                                      constraints: const BoxConstraints(maxWidth: 150),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(0.95),
+                                        borderRadius: const BorderRadius.only(
+                                          topLeft: Radius.circular(16),
+                                          topRight: Radius.circular(16),
+                                          bottomLeft: Radius.circular(16),
+                                          bottomRight: Radius.circular(0),
+                                        ),
+                                        border: Border.all(color: const Color(0xFF0F5238).withOpacity(0.2)),
+                                        boxShadow: [
+                                          BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 8, offset: const Offset(0, 4)),
+                                        ],
+                                      ),
+                                      child: Text(
+                                        _message!,
+                                        style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 13),
+                                        textAlign: TextAlign.left,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
                     ),
-                  ),
-                ], 
+                  ],
+                ),
               ),
-            ),
       ),
     );
   }
