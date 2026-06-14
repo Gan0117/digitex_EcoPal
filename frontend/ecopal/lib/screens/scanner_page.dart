@@ -172,9 +172,12 @@ class _ScannerPageState extends State<ScannerPage> with SingleTickerProviderStat
       pointsEarned = 0;
     }
     
+    String healthStatus = 'Unknown'; // Catch Mochi's judgment
+
     try {
-      // 2. Post the Transaction 
-      await ApiService.postTransaction(txData);
+      // 2. Post the Transaction and catch the result
+      final result = await ApiService.postTransaction(txData);
+      healthStatus = result['health_status'] ?? 'Healthy'; // Extract the status
       
       // 3. Update Profile Reward Points if points were earned
       if (pointsEarned > 0) {
@@ -205,7 +208,8 @@ class _ScannerPageState extends State<ScannerPage> with SingleTickerProviderStat
     await _fetchAIAnalysis();
     
     if (mounted) {
-      _showRewardSnackBar(pointsEarned);
+      // Pass the new healthStatus to the popup!
+      _showRewardSnackBar(pointsEarned, healthStatus); 
       if (pointsEarned > 0) {
         // Trigger pet celebration
         rewardPointsEarnedNotifier.value = 0; 
@@ -214,33 +218,50 @@ class _ScannerPageState extends State<ScannerPage> with SingleTickerProviderStat
     }
   }
 
-  void _showRewardSnackBar(int points) {
+  void _showRewardSnackBar(int points, String healthStatus) {
     final bool hasPoints = points > 0;
+    final style = _getGradeStyle(healthStatus); // Use your existing helper!
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
           children: [
             Icon(
-              hasPoints ? Icons.stars_rounded : Icons.check_circle_outline,
+              style['icon'], // Automatically uses Leaf/Balance/Alert icon
               color: Colors.white,
-              size: 20,
+              size: 28,
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 12),
             Expanded(
-              child: Text(
-                hasPoints
-                    ? 'Record saved!  +$points reward points earned ✨'
-                    : 'Record saved. No points for this category.',
-                style: const TextStyle(fontWeight: FontWeight.w600),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min, // Keep it compact
+                children: [
+                  Text(
+                    'Mochi says: $healthStatus!',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    hasPoints
+                        ? 'Record saved. +$points reward points ✨'
+                        : 'Record saved. No points for this category.',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w500, 
+                      fontSize: 12,
+                      color: Colors.white.withOpacity(0.9)
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
         ),
-        backgroundColor: hasPoints ? const Color(0xFF006C48) : Colors.grey.shade700,
+        backgroundColor: style['color'], // Red, Orange, or Green background
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-        duration: const Duration(seconds: 4),
+        duration: const Duration(seconds: 4), // Leaves time for judges to read
       ),
     );
   }

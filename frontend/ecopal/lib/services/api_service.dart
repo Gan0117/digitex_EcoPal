@@ -7,11 +7,11 @@ import 'package:dio/dio.dart';
 import 'package:http_parser/http_parser.dart';
 
 class ApiService {
-  //static bool isMockData = true;
+//static bool isMockData = true;
 static bool isMockData = false;
 
-  //static const String baseUrl = 'http://127.0.0.1:8000';
-   static const String baseUrl = 'https://utmhackathon-ecopal-1.onrender.com';
+  static const String baseUrl = 'http://127.0.0.1:8000';
+  //static const String baseUrl = 'https://utmhackathon-ecopal-1.onrender.com';
 
   static String? _getAuthToken() {
     final session = Supabase.instance.client.auth.currentSession;
@@ -92,10 +92,11 @@ static bool isMockData = false;
     return jsonDecode(response.body);
   }
 
-  static Future<void> postTransaction(Map<String, dynamic> data) async {
+  static Future<Map<String, dynamic>> postTransaction(Map<String, dynamic> data) async {
     if (isMockData) {
       await Future.delayed(const Duration(milliseconds: 300));
-      return; 
+      // Added a mock return so your app doesn't crash if you switch to mock mode
+      return {"message": "Mock success", "health_status": "Moderate"}; 
     }
     
     final token = _getAuthToken();
@@ -104,7 +105,13 @@ static bool isMockData = false;
       headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
       body: jsonEncode(data),
     );
-    if (response.statusCode != 200 && response.statusCode != 201) throw Exception('Backend error');
+    
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      // 2. We now decode and return the backend JSON so the UI can read it!
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Backend error: ${response.statusCode}');
+    }
   }
 
   static Future<void> updatePetStatus(Map<String, dynamic> data) async {
